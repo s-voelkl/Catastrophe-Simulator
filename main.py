@@ -7,7 +7,7 @@ def main():
 
     # create environment model
     environment: EnvironmentModel = EnvironmentModel(
-        width=10, height=10, n_survivors=5, n_agents=1, n_starts=4, seed=None
+        width=10, height=10, n_survivors=5, n_agents=1, n_save_zones=4, seed=None
     )
 
     print("\nSurvivors:")

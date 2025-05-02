@@ -138,7 +138,7 @@ class EnvironmentModel(mesa.Model):
         width: int,
         height: int,
         n_survivors: int,
-        n_starts: int,
+        n_save_zones: int,
         n_agents: int,
         seed=None,
     ):
@@ -153,7 +153,7 @@ class EnvironmentModel(mesa.Model):
         self.save_zone_positions = []
         self.maze = {}
         self._initialize_maze(width, height)
-        self._create_save_zones(n_starts)
+        self._create_save_zones(n_save_zones)
         self._create_survivors(n_survivors)
 
         # TODO: create agents
@@ -207,10 +207,40 @@ class EnvironmentModel(mesa.Model):
         self.maze = maze
         return maze
 
-    def _create_save_zones(self, n_starts: int) -> None:
-        # TODO: erstelle Startpositionen im Maze
-        self.save_zone_positions = [(1, 1)]
-        return
+    def _create_save_zones(self, n_save_zones: int) -> None:
+        # get all positions
+        possible_positions: Set[Tuple[int, int]] = set()
+        tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
+
+        for tile in tiles:
+            # tile must be at the borders (top, right, bottom, left)
+            if (
+                tile.x == 0
+                or tile.x == self.width - 1
+                or tile.y == 0
+                or tile.y == self.height - 1
+            ):
+                possible_positions.add((tile.x, tile.y))
+
+        # remove the positions of other save zones
+        possible_positions = possible_positions - set(self.save_zone_positions)
+
+        # remove the positions of survivors
+        possible_positions = possible_positions - set(self.survivor_positions)
+
+        # choose a random location for the survivors
+        for _ in range(n_save_zones):
+
+            if len(possible_positions) == 0:
+                print("Not enough space for save positions")
+                break
+
+            self.save_zone_positions.append(random.choice(list(possible_positions)))
+            possible_positions.remove(self.save_zone_positions[-1])
+
+            # TODO: remove wall between save zone and survivor
+
+        return self.save_zone_positions
 
     def _create_survivors(self, n_survivors: int) -> None:
         # get all positions
