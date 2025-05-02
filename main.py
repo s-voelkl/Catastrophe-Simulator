@@ -7,7 +7,13 @@ def main():
 
     # create environment model
     environment: EnvironmentModel = EnvironmentModel(
-        width=10, height=10, n_survivors=5, n_agents=1, n_starts=4, seed=None
+        width=20,
+        height=20,
+        n_survivors=5,
+        n_agents=1,
+        n_starts=4,
+        seed=None,
+        vertical_priorization=0.1,
     )
 
     # display (saving not implemented yet) the maze data
