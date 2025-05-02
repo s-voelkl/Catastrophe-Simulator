@@ -1,24 +1,116 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 from abc import ABC, abstractmethod
 import pyamaze
 import mesa
+import random
+
 
 # alternative: classes for positions and objects in the maze
-# class Position(ABC):
-#     # abstract class for positions in the maze
-#     x: int
-#     y: int
+class Position(ABC):
+    # abstract class for positions in the maze
+    x: int
+    y: int
 
-#     @abstractmethod
-#     def __init__(self, x: int, y: int):
-#         self.x = x
-#         self.y = y
+    @abstractmethod
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
 
-# class Tile(Position):
-#     def __init__(self, x: int, y: int, walls: Dict[str, int]):
-#         super().__init__(x, y)
-#         # walls: Dict[str, int] = {"N": 0, "E": 0, "S": 0, "W": 0}
-#         self.walls = walls
+
+class Tile(Position):
+    walls: Dict[str, int]
+    # walls: N, E, S, W. 0 = no wall, 1 = wall
+
+    def __init__(self, x: int, y: int, walls: Dict[str, int] = None):
+        super().__init__(x, y)
+        if walls is None:
+            walls = {"N": 1, "E": 1, "S": 1, "W": 1}
+        self.walls = walls
+
+    def get_tile_in_list_by_pos(pos_x: int, pos_y: int, tiles):
+        # tiles: List[Tile]
+        # get the tile in the list with the same x and y coordinates
+        for tile in tiles:
+            if tile.x == pos_x and tile.y == pos_y:
+                return tile
+        return None
+
+    def get_neighbors(self, tiles):
+        # get directly adjacent tiles in the directions N, E, S, W.
+        # if a tile does not exist, dont add it to the list of neighbors
+        # tiles: List[Tile]
+        neighbors: List[Tile] = []
+        for direction in ["N", "E", "S", "W"]:
+            dx, dy = 0, 0
+            if direction == "N":
+                dy = 1
+            elif direction == "E":
+                dx = 1
+            elif direction == "S":
+                dy = -1
+            elif direction == "W":
+                dx = -1
+
+            neighbor_x = self.x + dx
+            neighbor_y = self.y + dy
+
+            neighbor_tile = Tile.get_tile_in_list_by_pos(neighbor_x, neighbor_y, tiles)
+            if neighbor_tile is not None:
+                neighbors.append(neighbor_tile)
+
+        return neighbors
+
+    def add_wall(self, neighbor) -> None:
+        # add a wall between this tile and the neighbor tile
+        if self.x == neighbor.x:
+            if self.y < neighbor.y:
+                self.walls["N"] = 1
+                neighbor.walls["S"] = 1
+            else:
+                self.walls["S"] = 1
+                neighbor.walls["N"] = 1
+        elif self.y == neighbor.y:
+            if self.x < neighbor.x:
+                self.walls["E"] = 1
+                neighbor.walls["W"] = 1
+            else:
+                self.walls["W"] = 1
+                neighbor.walls["E"] = 1
+
+    def remove_wall(self, neighbor) -> None:
+        # remove a wall between this tile and the neighbor tile
+        if self.x == neighbor.x:
+            if self.y < neighbor.y:
+                self.walls["N"] = 0
+                neighbor.walls["S"] = 0
+            else:
+                self.walls["S"] = 0
+                neighbor.walls["N"] = 0
+        elif self.y == neighbor.y:
+            if self.x < neighbor.x:
+                self.walls["E"] = 0
+                neighbor.walls["W"] = 0
+            else:
+                self.walls["W"] = 0
+                neighbor.walls["E"] = 0
+
+    def transform_tiles_to_dict(tiles: List) -> Dict[Tuple[int, int], Dict[str, int]]:
+        # transform the list of tiles into a dictionary with the tile positions as keys and the walls as values
+        maze_dict: Dict[Tuple[int, int], Dict[str, int]] = {}
+        for tile in tiles:
+            maze_dict[(tile.x, tile.y)] = tile.walls
+        return maze_dict
+
+    def transform_dict_to_tiles(
+        maze_dict: Dict[Tuple[int, int], Dict[str, int]],
+    ) -> List:
+        # transform the dictionary of tiles into a list of tiles
+        tiles: List[Tile] = []
+        for pos, walls in maze_dict.items():
+            tile = Tile(pos[0], pos[1], walls)
+            tiles.append(tile)
+        return tiles
+
 
 # class Survivor(Position):
 #     def __init__(self, x: int, y: int):
@@ -67,11 +159,50 @@ class EnvironmentModel(mesa.Model):
     def _initialize_maze(
         self, width: int, height: int
     ) -> Dict[Tuple[int, int], Dict[str, int]]:
-        # TODO: Replace with random dfs maze generation
+        # TODO: Replace with random dfs maze generation (= recursive backtracking)
+        # # m = pyamaze.maze(width, height)
+        # # m.CreateMaze(loopPercent=20, pattern="h")
+        # # self.maze = m.maze_map
+        self.maze = {}
 
-        m = pyamaze.maze(width, height)
-        m.CreateMaze(loopPercent=20, pattern="h")
-        self.maze = m.maze_map
+        # initialize maze with width*height tiles and all walls present
+        tiles: List[Tile] = []
+        for i in range(height):
+            for j in range(width):
+                tiles.append(Tile(i, j))
+
+        initial_tile = Tile.get_tile_in_list_by_pos(0, 0, tiles)
+        if not initial_tile:
+            raise ValueError("Initial tile not found in tiles list.")
+
+        frontier: List[Tile] = [initial_tile]
+        visited: Set[Tile] = {initial_tile}
+
+        while frontier:
+            # pop a cell as the current cell
+            tile: Tile = frontier.pop()
+
+            # if the cell has any neighbors which have not been visited...
+            neighbors = tile.get_neighbors(tiles)
+            unvisited_neighbors = [n for n in neighbors if n not in visited]
+            if unvisited_neighbors:
+                # push the current cell to the stack
+                frontier.append(tile)
+
+                # choose one of the unvisited neighbors at random (use vertical/horizontal preference here?)
+                neighbor = random.choice(unvisited_neighbors)
+
+                # and remove the wall between them
+                tile.remove_wall(neighbor)
+
+                # then mark the neighbor as visited and push it to the stack
+                visited.add(neighbor)
+                frontier.append(neighbor)
+
+        # set the maze to the dictionary of tiles
+        maze = Tile.transform_tiles_to_dict(tiles)
+        self.maze = maze
+        return maze
 
     def _create_save_zones(self, n_starts: int) -> None:
         # TODO: erstelle Startpositionen im Maze

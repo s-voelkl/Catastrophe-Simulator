@@ -16,6 +16,10 @@ def main():
     # display the maze
     environment.visualize_maze()
 
+    # end
+    print("\n\nEnd of simulation")
+    print("Sebastian Kleber, Simon Völkl, in 2025")
+
 
 if __name__ == "__main__":
     main()
