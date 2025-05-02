@@ -141,7 +141,6 @@ class EnvironmentModel(mesa.Model):
         n_starts: int,
         n_agents: int,
         seed=None,
-        vertical_priorization: float = 0.5,
     ):
         # Use the seed kwarg to control the random number generator for reproducibility.
         super().__init__(seed=seed)
@@ -150,9 +149,7 @@ class EnvironmentModel(mesa.Model):
         self.height = height
         self.round = 0
         self.steps = 0
-        self._initialize_maze(
-            width, height, probability_vertical_neighbor=vertical_priorization
-        )
+        self._initialize_maze(width, height)
         self._create_save_zones(n_starts)
         self._create_survivors(n_survivors)
 
@@ -160,17 +157,13 @@ class EnvironmentModel(mesa.Model):
 
     # MAZE GENERATION (Task 1, 3)
     def _initialize_maze(
-        self, width: int, height: int, probability_vertical_neighbor: float = 0.5
+        self, width: int, height: int
     ) -> Dict[Tuple[int, int], Dict[str, int]]:
+        # TODO: Replace with random dfs maze generation (= recursive backtracking)
+        # # m = pyamaze.maze(width, height)
+        # # m.CreateMaze(loopPercent=20, pattern="h")
+        # # self.maze = m.maze_map
         self.maze = {}
-
-        # validate inputs
-        if width <= 0 or height <= 0:
-            raise ValueError("Width and height must be positive integers.")
-
-        # if > 0.5: prioritize vertical neighbors --> maze is more vertically aligned
-        if not (0 < probability_vertical_neighbor < 1):
-            raise ValueError("Probability must be between 0 and 1 (both excluded).")
 
         # initialize maze with width*height tiles and all walls present
         tiles: List[Tile] = []
@@ -178,9 +171,7 @@ class EnvironmentModel(mesa.Model):
             for j in range(width):
                 tiles.append(Tile(i, j))
 
-        initial_tile = Tile.get_tile_in_list_by_pos(
-            pos_x=0, pos_y=height - 1, tiles=tiles
-        )
+        initial_tile = Tile.get_tile_in_list_by_pos(0, 0, tiles)
         if not initial_tile:
             raise ValueError("Initial tile not found in tiles list.")
 
@@ -198,25 +189,8 @@ class EnvironmentModel(mesa.Model):
                 # push the current cell to the stack
                 frontier.append(tile)
 
-                # choose one of the unvisited neighbors.
-                vertical_neighbors = [
-                    n for n in unvisited_neighbors if n.x == tile.x and n.y != tile.y
-                ]
-                horizontal_neighbors = [
-                    n for n in unvisited_neighbors if n.y == tile.y and n.x != tile.x
-                ]
-
-                rdm = random.random()
-                if vertical_neighbors and horizontal_neighbors:
-                    if rdm <= probability_vertical_neighbor:
-                        neighbor = random.choice(vertical_neighbors)
-                    else:
-                        neighbor = random.choice(horizontal_neighbors)
-                # if not both, choose one of the two
-                elif vertical_neighbors:
-                    neighbor = random.choice(vertical_neighbors)
-                elif horizontal_neighbors:
-                    neighbor = random.choice(horizontal_neighbors)
+                # choose one of the unvisited neighbors at random (use vertical/horizontal preference here?)
+                neighbor = random.choice(unvisited_neighbors)
 
                 # and remove the wall between them
                 tile.remove_wall(neighbor)
