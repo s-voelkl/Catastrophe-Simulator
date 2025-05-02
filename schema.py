@@ -149,6 +149,9 @@ class EnvironmentModel(mesa.Model):
         self.height = height
         self.round = 0
         self.steps = 0
+        self.survivor_positions = []
+        self.save_zone_positions = []
+        self.maze = {}
         self._initialize_maze(width, height)
         self._create_save_zones(n_starts)
         self._create_survivors(n_survivors)
@@ -210,9 +213,43 @@ class EnvironmentModel(mesa.Model):
         return
 
     def _create_survivors(self, n_survivors: int) -> None:
-        # TODO: erstelle Überlebende im Maze
-        self.survivor_positions = [(3, 3)]
-        return
+        # get all positions
+        possible_positions: Set[Tuple[int, int]] = set()
+        tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
+
+        for tile in tiles:
+            # tile must be accessible (max. 3 walls)
+            if 1 not in tile.walls.values():
+                continue
+
+            # tile cant be at the borders (top, right, bottom, left)
+            if (
+                tile.x == 0
+                or tile.x == self.width - 1
+                or tile.y == 0
+                or tile.y == self.height - 1
+            ):
+                continue
+
+            possible_positions.add((tile.x, tile.y))
+
+        # remove the positions of save zones
+        possible_positions = possible_positions - set(self.save_zone_positions)
+
+        # remove the positions of other survivors
+        possible_positions = possible_positions - set(self.survivor_positions)
+
+        # choose a random location for the survivors
+        for _ in range(n_survivors):
+
+            if len(possible_positions) == 0:
+                print("Not enough space for survivors")
+                break
+
+            self.survivor_positions.append(random.choice(list(possible_positions)))
+            possible_positions.remove(self.survivor_positions[-1])
+
+        return self.survivor_positions
 
     # MAZE METRICS (Task 2)
     # pathlengths
@@ -269,10 +306,15 @@ class EnvironmentModel(mesa.Model):
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
     def visualize_maze(self) -> None:
-        m = pyamaze.maze(self.width, self.height)
+        m = pyamaze.maze(
+            self.width,
+            self.height,
+        )
 
         # use the maze of self.maze as the grid
         m.grid = self.maze
+        m.markCells = self.survivor_positions
+        # agent = pyamaze.agent(m)
         m.CreateMaze()
         m.run()
 
