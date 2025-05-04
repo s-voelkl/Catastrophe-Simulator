@@ -2,6 +2,7 @@ GitHub Repo: https://github.com/s-voelkl/Catastrophe-Simulator
 
 Maze Generation:
 https://github.com/NacerKROUDIR/MazeGeneration/blob/main/Maze_Generator.py
+https://en.wikipedia.org/wiki/Maze_generation_algorithm
 
 Maze symmetry:
 https://uca.hal.science/hal-03174952v1/document
