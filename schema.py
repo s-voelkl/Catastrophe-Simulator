@@ -3,11 +3,17 @@ from abc import ABC, abstractmethod
 import pyamaze
 import mesa
 import random
+from helper_functions import *
+from copy import copy, deepcopy
+import csv, os
+
+CSV_VISUALISATION_FILE = "./output/maze_visualisation.csv"
 
 
 # alternative: classes for positions and objects in the maze
 class Position(ABC):
     # abstract class for positions in the maze
+    # e.g. the top left corner is (0, height -1), the bottom right corner is (width -1, 0)
     x: int
     y: int
 
@@ -76,6 +82,8 @@ class Tile(Position):
             else:
                 self.walls["W"] = 1
                 neighbor.walls["E"] = 1
+        else:
+            print("Tiles are at the same position or not adjacent, cannot add wall.")
 
     def remove_wall(self, neighbor) -> None:
         # remove a wall between this tile and the neighbor tile
@@ -93,6 +101,25 @@ class Tile(Position):
             else:
                 self.walls["W"] = 0
                 neighbor.walls["E"] = 0
+
+    def remove_edge_walls(self, maze_width: int, maze_height: int):
+        # "N" edge
+        if self.y == maze_height - 1:
+            self.walls["N"] = 0
+
+        # "E" edge
+        if self.x == maze_width - 1:
+            self.walls["E"] = 0
+
+        # "S" edge
+        if self.y == 0:
+            self.walls["S"] = 0
+
+        # "W" edge
+        if self.x == 0:
+            self.walls["W"] = 0
+
+        return self
 
     def transform_tiles_to_dict(tiles: List) -> Dict[Tuple[int, int], Dict[str, int]]:
         # transform the list of tiles into a dictionary with the tile positions as keys and the walls as values
@@ -112,14 +139,19 @@ class Tile(Position):
         return tiles
 
 
-# class Survivor(Position):
-#     def __init__(self, x: int, y: int):
-#         super().__init__(x, y)
-#         self.is_rescued = False
+class Survivor:
+    tile: Tile
 
-# class SaveZone(Position):
-#     def __init__(self, x: int, y: int):
-#         super().__init__(x, y)
+    def __init__(self, tile: Tile):
+        self.tile = tile
+        self.is_rescued = False
+
+
+class SaveZone:
+    tile: Tile
+
+    def __init__(self, tile: Tile):
+        self.tile = tile
 
 
 class EnvironmentModel(mesa.Model):
@@ -127,8 +159,9 @@ class EnvironmentModel(mesa.Model):
     width: int
     height: int
     maze: Dict[Tuple[int, int], Dict[str, int]]
-    survivor_positions: List[Tuple[int, int]]
-    save_zone_positions: List[Tuple[int, int]]
+
+    survivors: List[Survivor]
+    save_zones: List[SaveZone]
     round: int
     steps: int
     # agent: Agent
@@ -149,8 +182,8 @@ class EnvironmentModel(mesa.Model):
         self.height = height
         self.round = 0
         self.steps = 0
-        self.survivor_positions = []
-        self.save_zone_positions = []
+        self.survivors = []
+        self.save_zones = []
         self.maze = {}
         self._initialize_maze(width, height)
         self._create_save_zones(n_save_zones)
@@ -170,9 +203,9 @@ class EnvironmentModel(mesa.Model):
 
         # initialize maze with width*height tiles and all walls present
         tiles: List[Tile] = []
-        for i in range(height):
-            for j in range(width):
-                tiles.append(Tile(i, j))
+        for h in range(height):
+            for w in range(width):
+                tiles.append(Tile(w, h))
 
         initial_tile = Tile.get_tile_in_list_by_pos(0, 0, tiles)
         if not initial_tile:
@@ -209,42 +242,51 @@ class EnvironmentModel(mesa.Model):
 
     def _create_save_zones(self, n_save_zones: int) -> None:
         # get all positions
-        possible_positions: Set[Tuple[int, int]] = set()
+        possible_tiles: Set[Tile] = set()
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
 
         for tile in tiles:
             # tile must be at the borders (top, right, bottom, left)
-            if (
+            if not (
                 tile.x == 0
                 or tile.x == self.width - 1
                 or tile.y == 0
                 or tile.y == self.height - 1
             ):
-                possible_positions.add((tile.x, tile.y))
+                continue
 
-        # remove the positions of other save zones
-        possible_positions = possible_positions - set(self.save_zone_positions)
+            # if tile is already a save zone, skip it
+            for sz in self.save_zones:
+                if tile.x == sz.tile.x and tile.y == sz.tile.y:
+                    continue
 
-        # remove the positions of survivors
-        possible_positions = possible_positions - set(self.survivor_positions)
+            # if tile is already a survivor, skip it
+            for s in self.survivors:
+                if tile.x == s.tile.x and tile.y == s.tile.y:
+                    continue
 
-        # choose a random location for the survivors
+            possible_tiles.add(tile)
+
+        # choose a random tile for each survivor
         for _ in range(n_save_zones):
 
-            if len(possible_positions) == 0:
+            if len(possible_tiles) == 0:
                 print("Not enough space for save positions")
                 break
 
-            self.save_zone_positions.append(random.choice(list(possible_positions)))
-            possible_positions.remove(self.save_zone_positions[-1])
+            tile = random.choice(list(possible_tiles))
 
-            # TODO: remove wall between save zone and survivor
+            # remove wall between the position and the edge (maze open there)
+            tile.remove_edge_walls(self.width, self.height)
 
-        return self.save_zone_positions
+            self.save_zones.append(SaveZone(tile))
+            possible_tiles.remove(tile)
+
+        return self.save_zones
 
     def _create_survivors(self, n_survivors: int) -> None:
         # get all positions
-        possible_positions: Set[Tuple[int, int]] = set()
+        possible_tiles: Set[Tile] = set()
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
 
         for tile in tiles:
@@ -261,25 +303,31 @@ class EnvironmentModel(mesa.Model):
             ):
                 continue
 
-            possible_positions.add((tile.x, tile.y))
+            # if tile is already a save zone, skip it
+            for sz in self.save_zones:
+                if tile.x == sz.tile.x and tile.y == sz.tile.y:
+                    continue
 
-        # remove the positions of save zones
-        possible_positions = possible_positions - set(self.save_zone_positions)
+            # if tile is already a survivor, skip it
+            for s in self.survivors:
+                if tile.x == s.tile.x and tile.y == s.tile.y:
+                    continue
 
-        # remove the positions of other survivors
-        possible_positions = possible_positions - set(self.survivor_positions)
+            possible_tiles.add(tile)
 
-        # choose a random location for the survivors
+        # choose a random tile for each survivor
         for _ in range(n_survivors):
 
-            if len(possible_positions) == 0:
+            if len(possible_tiles) == 0:
                 print("Not enough space for survivors")
                 break
 
-            self.survivor_positions.append(random.choice(list(possible_positions)))
-            possible_positions.remove(self.survivor_positions[-1])
+            tile = random.choice(list(possible_tiles))
 
-        return self.survivor_positions
+            self.survivors.append(Survivor(tile))
+            possible_tiles.remove(tile)
+
+        return self.survivors
 
     # MAZE METRICS (Task 2)
     # pathlengths
@@ -316,7 +364,7 @@ class EnvironmentModel(mesa.Model):
     # count of exits
     def get_exit_count(self) -> int:
         # TODO: Check if this is correct after later data structure changes
-        return len(self.save_zone_positions)
+        return len(self.save_zones)
 
     # symmetry
     def check_horizontal_symmetry(self) -> bool:
@@ -335,25 +383,122 @@ class EnvironmentModel(mesa.Model):
     #     pass
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
-    def visualize_maze(self) -> None:
-        m = pyamaze.maze(
-            self.width,
-            self.height,
+    def _save_maze_csv(self) -> str:
+        # save the maze to a csv file in the following format:
+        #   cell  ,E,W,N,S
+        # "(10, 1)",1,1,1,1
+        # "(10, 2)",1,1,0,1
+        # "(10, 3)",1,1,0,1 ...
+
+        # own structure --> transformed structure for pyamaze
+        # {(0, 0):  {'N': 1, 'E': 0, 'S': 1, 'W': 1},   (0, 1): {'N': 0, 'E': 0, 'S': 1, 'W': 1}, (0, 2): {'N': 1, 'E': 0, 'S': 0, 'W': 1}
+        # {(10, 1): {'N': 1, 'E': 0, 'S': 1, 'W': 1},   (9, 1): {'N': 0, 'E': 0, 'S': 1, 'W': 1}, (8, 1): {'N': 1, 'E': 0, 'S': 0, 'W': 1}
+        transformed_maze: Dict[Tuple[int, int], Dict[str, int]] = {}
+        for key, val in self.maze.items():
+            # transform the coordinates for visualization
+            transformed_key = transform_coord_for_visualization(
+                self.height, key[0], key[1]
+            )
+
+            # sort the walls in the correct order for pyamaze: E, W, N, S
+            transformed_val = {
+                "E": val["E"],
+                "W": val["W"],
+                "N": val["N"],
+                "S": val["S"],
+            }
+            transformed_maze[transformed_key] = transformed_val
+
+        # Transform the transformed maze:
+        # Sort the keys by: key[0] descending, key[1] ascending
+        transformed_maze = dict(
+            sorted(transformed_maze.items(), key=lambda item: (item[0][1], item[0][0]))
         )
 
-        # use the maze of self.maze as the grid
-        m.grid = self.maze
-        m.markCells = self.survivor_positions
-        # agent = pyamaze.agent(m)
-        m.CreateMaze()
+        # code from pyamaze to simulate the same csv output as pyamaze
+        with open(CSV_VISUALISATION_FILE, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["  cell  ", "E", "W", "N", "S"])
+
+            for key, val in transformed_maze.items():
+                entry = [key]
+                for i in val.values():
+                    entry.append(i)
+                writer.writerow(entry)
+
+            f.seek(0, os.SEEK_END)
+            f.seek(f.tell() - 2, os.SEEK_SET)
+            f.truncate()
+
+        return CSV_VISUALISATION_FILE
+
+    def visualize_maze(self) -> None:
+        m = pyamaze.maze(
+            self.height,
+            self.width,
+        )
+
+        path = self._save_maze_csv()
+        m.CreateMaze(loadMaze=path)
+
+        # m.maze_map = deepcopy(transformed_maze)
+        # print(m.grid)  # [(1, 1), (2, 1), (3, 1), (4, 1), (5...
+        # m.theme = pyamaze.COLOR.dark
+        # m.rows = self.height
+        # m.cols = self.width
+        # m.path = {}
+        # m._LabWidth = 26
+        # m._goal = (0, 0)
+
+        # manually generate grid for pyamaze
+        # grid: List[Tuple[int, int]] = []
+        # for w in range(1, self.width + 1):
+        #     for h in range(1, self.height + 1):
+        #         grid.append((h, w))
+        # m.grid = grid
+        # m._grid = grid
+
+        # display survivors in the map
+        survivor_positions_adjusted = [
+            transform_coord_for_visualization(self.height, s.tile.x, s.tile.y)
+            for s in self.survivors
+        ]
+
+        for survivor_position_adj in survivor_positions_adjusted:
+            agent_survivor = pyamaze.agent(
+                m,
+                # filled=True,
+                color=pyamaze.COLOR.red,
+                footprints=False,
+                x=survivor_position_adj[0],
+                y=survivor_position_adj[1],
+                shape="square",
+            )
+
+        # display save zones in the map
+        save_zone_positions_adjusted = [
+            transform_coord_for_visualization(self.height, sz.tile.x, sz.tile.y)
+            for sz in self.save_zones
+        ]
+        for save_zone_position_adj in save_zone_positions_adjusted:
+            agent_save_zone = pyamaze.agent(
+                m,
+                # filled=True,
+                color=pyamaze.COLOR.green,
+                footprints=False,
+                x=save_zone_position_adj[0],
+                y=save_zone_position_adj[1],
+                shape="square",
+            )
+
         m.run()
 
     def save_metrics(self) -> None:
         # basic metrics
         width = self.width
         height = self.height
-        n_survivors = len(self.survivor_positions)
-        n_save_zones = len(self.save_zone_positions)
+        n_survivors = len(self.survivors)
+        n_save_zones = len(self.save_zones)
         rounds = self.round
         steps = self.steps
 

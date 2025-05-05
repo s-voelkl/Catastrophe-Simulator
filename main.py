@@ -11,18 +11,19 @@ def main():
     )
 
     print("\nSurvivors:")
-    for s in environment.survivor_positions:
-        print(f"- Survivor at {s}")
+    for s in environment.survivors:
+        print(f"- Survivor at (x{s.tile.x}, y{s.tile.y}), walls: {s.tile.walls}")
 
     print("\nSave Zones: ")
-    for s in environment.save_zone_positions:
-        print(f"- SaveZone at {s}")
+    for sz in environment.save_zones:
+        print(f"- SaveZone at (x{sz.tile.x}, y{sz.tile.y}), walls: {sz.tile.walls}")
 
     # display (saving not implemented yet) the maze data
     environment.save_metrics()
+    print(environment.maze)
 
-    # display the maze
-    environment.visualize_maze()
+    # display the maze - contains errors when displaying the maze
+    # environment.visualize_maze()
 
     # end
     print("\n\nEnd of simulation")
