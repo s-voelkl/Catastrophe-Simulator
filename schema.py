@@ -6,6 +6,8 @@ import random
 from helper_functions import *
 from copy import copy, deepcopy
 import csv, os
+import networkx as nx
+import matplotlib.pyplot as plt
 
 CSV_VISUALISATION_FILE = "./output/maze_visualisation.csv"
 
@@ -121,6 +123,28 @@ class Tile(Position):
 
         return self
 
+    def check_tiles_connection(self, other) -> bool:
+        # go through every orientation of the walls of the tiles
+        # true, if connected, false if not connected
+        # vertical connection: N, S
+        if self.x == other.x:
+            if self.y < other.y:
+                if self.walls["N"] == 0 and other.walls["S"] == 0:
+                    return True
+            else:
+                if self.walls["S"] == 0 and other.walls["N"] == 0:
+                    return True
+
+        # horizontal connection: E, W
+        if self.y == other.y:
+            if self.x < other.x:
+                if self.walls["E"] == 0 and other.walls["W"] == 0:
+                    return True
+            else:
+                if self.walls["W"] == 0 and other.walls["E"] == 0:
+                    return True
+        return False
+
     def transform_tiles_to_dict(tiles: List) -> Dict[Tuple[int, int], Dict[str, int]]:
         # transform the list of tiles into a dictionary with the tile positions as keys and the walls as values
         maze_dict: Dict[Tuple[int, int], Dict[str, int]] = {}
@@ -137,6 +161,29 @@ class Tile(Position):
             tile = Tile(pos[0], pos[1], walls)
             tiles.append(tile)
         return tiles
+
+    def transform_tiles_to_graph(tiles: List) -> nx.Graph:
+        # transform the list of tiles into a graph
+        # positions as nodes, walls with values 0 (no wall) as edges
+
+        G = nx.Graph()
+
+        # add nodes
+        for tile in tiles:
+            tile: Tile = tile
+            if tile not in G.nodes:
+                G.add_node(tile)
+
+        # add edges
+        for tile in tiles:
+            neighbors = tile.get_neighbors(tiles=tiles)
+            for neighbor in neighbors:
+                if not G.has_edge(tile, neighbor):
+                    if tile.check_tiles_connection(neighbor):
+                        # add edge if the tiles are connected (no wall between them)
+                        G.add_edge(tile, neighbor)
+
+        return G
 
 
 class Survivor:
