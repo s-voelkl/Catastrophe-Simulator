@@ -10,6 +10,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 CSV_VISUALISATION_FILE = "./output/maze_visualisation.csv"
+GRAPH_VISUALISATION_FILE = "./output/graph_visualisation.png"
 
 
 # alternative: classes for positions and objects in the maze
@@ -201,6 +202,14 @@ class SaveZone:
         self.tile = tile
 
 
+class AgentModel(mesa.Agent):
+    tile: Tile
+
+    def __init__(self, unique_id: int, model: mesa.Model):
+        super().__init__(unique_id, model)
+        self.tile: Tile = None
+
+
 class EnvironmentModel(mesa.Model):
 
     width: int
@@ -211,7 +220,7 @@ class EnvironmentModel(mesa.Model):
     save_zones: List[SaveZone]
     round: int
     steps: int
-    # agent: Agent
+    agents: List[AgentModel]
 
     def __init__(
         self,
@@ -430,6 +439,43 @@ class EnvironmentModel(mesa.Model):
     #     pass
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
+    def visualize_graph(self) -> None:
+        tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
+
+        G: nx.Graph = Tile.transform_tiles_to_graph(tiles)
+
+        labeldict = {}
+        for tile in tiles:
+            label: str = ""
+            # if tile is survivor, add a "SURV" to it.
+            if (tile.x, tile.y) in ((su.tile.x, su.tile.y) for su in self.survivors):
+                label = "SURV\n"
+
+            # if tile is save zone, add a "SAVEZONE" to it.
+            if (tile.x, tile.y) in ((sz.tile.x, sz.tile.y) for sz in self.save_zones):
+                label = "SAVE\n"
+
+            # if tile is agent, add a "AGENT" to it.
+            if (tile.x, tile.y) in ((ag.tile.x, ag.tile.y) for ag in self.agents):
+                label = "AGENT\n"
+
+            label += str(tile.x) + "," + str(tile.y)
+            labeldict[tile] = label
+
+        nx.draw(
+            G,
+            with_labels=True,
+            labels=labeldict,
+            node_size=40,
+            node_color="lightgreen",
+            font_size=10,
+            font_color="black",
+            edge_color="grey",
+        )
+        plt.savefig(GRAPH_VISUALISATION_FILE, dpi=300, bbox_inches="tight")
+        plt.show()
+        return None
+
     def _save_maze_csv(self) -> str:
         # save the maze to a csv file in the following format:
         #   cell  ,E,W,N,S

@@ -25,17 +25,8 @@ def main():
     # display the maze - contains errors when displaying the maze
     # environment.visualize_maze()
 
-    tiles: List[Tile] = Tile.transform_dict_to_tiles(environment.maze)
-    G: nx.Graph = Tile.transform_tiles_to_graph(tiles)
-    nx.draw(
-        G,
-        with_labels=False,
-        node_size=50,
-        node_color="black",
-        font_size=8,
-        font_color="white",
-    )
-    plt.show()
+    # display the graph
+    environment.visualize_graph()
 
     # end
     print("\n\nEnd of simulation")
