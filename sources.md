@@ -18,3 +18,9 @@ https://mesa.readthedocs.io/latest/index.html
 
 Pyamaze:
 https://github.com/MAN1986/pyamaze/blob/main/pyamaze/pyamaze.py
+
+NetworkX:
+https://stackoverflow.com/questions/28533111/plotting-networkx-graph-with-node-labels-defaulting-to-node-name
+
+Matplotlib:
+https://stackoverflow.com/questions/9012487/savefig-outputs-blank-image
