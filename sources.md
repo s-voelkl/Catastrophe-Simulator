@@ -26,3 +26,6 @@ https://stackoverflow.com/questions/53734823/why-does-networkx-redraw-my-graph-d
 
 Matplotlib:
 https://stackoverflow.com/questions/9012487/savefig-outputs-blank-image
+
+BrickWall:
+https://github.com/Jaco7Fourie/BrickWall/tree/master
