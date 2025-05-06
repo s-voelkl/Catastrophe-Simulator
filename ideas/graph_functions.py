@@ -1,6 +1,5 @@
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 from typing import Any, List, Set
 from collections.abc import Iterable
 

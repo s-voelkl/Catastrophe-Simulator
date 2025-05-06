@@ -1,4 +1,4 @@
-from pyamaze import maze, COLOR, agent
+from pyamaze import maze, agent
 
 # m = maze(10, 10)
 # m.CreateMaze(theme=COLOR.light)

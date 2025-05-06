@@ -6,8 +6,8 @@ import pyamaze
 import mesa
 import random
 from helper_functions import *
-from copy import copy, deepcopy
-import csv, os
+import csv
+import os
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -323,7 +323,6 @@ class RobotAgent(mesa.Agent):
 
 
 class EnvironmentModel(mesa.Model):
-
     width: int
     height: int
     maze: Dict[Tuple[int, int], Dict[str, int]]
@@ -471,7 +470,6 @@ class EnvironmentModel(mesa.Model):
 
         # choose a random tile for each survivor
         for _ in range(n_save_zones):
-
             if len(possible_tiles) == 0:
                 print("Not enough space for save positions")
                 break
@@ -519,7 +517,6 @@ class EnvironmentModel(mesa.Model):
 
         # choose a random tile for each survivor
         for _ in range(n_survivors):
-
             if len(possible_tiles) == 0:
                 print("Not enough space for survivors")
                 break
