@@ -12,6 +12,9 @@ https://en.wikipedia.org/wiki/Maze_generation_algorithm
 Pathlengths:
 https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.shortest_paths.generic.shortest_path_length.html
 
+Search Algorithm:
+https://de.wikipedia.org/wiki/Manhattan-Metrik
+
 PACKAGES:
 Mesa:
 https://mesa.readthedocs.io/latest/index.html
