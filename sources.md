@@ -15,12 +15,14 @@ https://networkx.org/documentation/stable/reference/algorithms/generated/network
 PACKAGES:
 Mesa:
 https://mesa.readthedocs.io/latest/index.html
+https://mesa.readthedocs.io/latest/examples/basic/boltzmann_wealth_model.html
 
 Pyamaze:
 https://github.com/MAN1986/pyamaze/blob/main/pyamaze/pyamaze.py
 
 NetworkX:
 https://stackoverflow.com/questions/28533111/plotting-networkx-graph-with-node-labels-defaulting-to-node-name
+https://stackoverflow.com/questions/53734823/why-does-networkx-redraw-my-graph-different-each-run
 
 Matplotlib:
 https://stackoverflow.com/questions/9012487/savefig-outputs-blank-image

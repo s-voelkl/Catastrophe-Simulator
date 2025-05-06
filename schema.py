@@ -1,5 +1,7 @@
 from typing import Dict, List, Tuple, Set
 from abc import ABC, abstractmethod
+import mesa.agent
+import mesa.model
 import pyamaze
 import mesa
 import random
@@ -194,6 +196,16 @@ class Survivor:
         self.tile = tile
         self.is_rescued = False
 
+    def move(self, new_tile: Tile) -> Tile:
+        # move the survivor from the current tile to another tile
+        self.tile = new_tile
+        return self.tile
+
+    def set_rescued(self) -> bool:
+        # set the survivor to rescued
+        self.is_rescued = True
+        return self.is_rescued
+
 
 class SaveZone:
     tile: Tile
@@ -202,12 +214,112 @@ class SaveZone:
         self.tile = tile
 
 
-class AgentModel(mesa.Agent):
+class RobotAgent(mesa.Agent):
+    model: mesa.Model
+    # unique_id: int
     tile: Tile
+    transported_survivor: Survivor
+    tiles_moved: int
+    survivors_picked_up: int
+    survivors_placed_down: int
 
-    def __init__(self, unique_id: int, model: mesa.Model):
-        super().__init__(unique_id, model)
-        self.tile: Tile = None
+    def __init__(self, model, tile: Tile):
+        """Create a new agent.
+
+        Args:
+            model (Model): The model instance that contains the agent
+            tile (Tile): The tile the agent is starting on
+        """
+
+        # self.unique_id = len(model.agents)
+        # super().__init__(self.unique_id, model)
+        super().__init__(model)
+        self.tile = tile
+        self.transported_survivor = None
+        self.tiles_moved = 0
+        self.survivors_picked_up = 0
+        self.survivors_placed_down = 0
+
+    def step(self):
+        # if on save zone
+        if self.tile in [sz.tile for sz in self.model.save_zones]:
+            # with survivor: place down
+            if self.transported_survivor is not None:
+                print("Transporting survivor. Placing survivor down")
+                self.place_down_survivor()
+                return
+
+            # without survivor: move next
+            if self.transported_survivor is None:
+                print("Not transporting survivor. Moving to next survivor")
+                self.move_to_survivor()
+                return
+
+        # if not on save zone
+        # if having survivor -> move to save zone
+        if self.transported_survivor is not None:
+            print("Transporting survivor. Moving")
+            self.move_to_save_zone()
+            return
+
+        # if not on save zone and no survivor
+        if self.transported_survivor is None:
+            print("Not transporting survivor. Trying to pick up survivor")
+            self.pick_up_survivor()
+
+            if self.transported_survivor is not None:
+                print("No survivor found")
+            return
+
+    def place_down_survivor(self, rescued: bool = True) -> None:
+        # update transported survivor properties, place it down
+        self.transported_survivor.tile = self.tile
+        if rescued:
+            self.transported_survivor.set_rescued()
+
+        self.transported_survivor = None
+        self.survivors_placed_down += 1
+
+    def pick_up_survivor(self) -> Survivor:
+        survivor: Survivor = None
+
+        for su in self.model.survivors:
+            if su.tile.x == self.tile.x and su.tile.y == self.tile.y:
+                survivor = su
+                break
+        if not survivor:
+            print("No survivor could be found.")
+            return None
+
+        self.transported_survivor = survivor
+        self.survivors_picked_up += 1
+        return Survivor
+
+    def move_to_save_zone(self) -> Tile:
+        print("Moving to save zone...")
+        # TODO
+        # get nearest savezone
+
+        # find route to savezone
+        # route: List[Tile] = self.find_route()
+
+        # self.tiles_moved += len(route)
+        return self.tile
+
+    def move_to_survivor(self) -> Tile:
+        print("Moving to survivor...")
+
+        # TODO
+        # get nearest survivor, that is not Survivor.rescued
+
+        # find route to survivor
+        # route: List[Tile] = self.find_route()
+
+        # self.tiles_moved += len(route)
+        return self.tile
+
+    def find_route(self, target_tile: Tile) -> List[Tile]:
+        return []
 
 
 class EnvironmentModel(mesa.Model):
@@ -218,9 +330,8 @@ class EnvironmentModel(mesa.Model):
 
     survivors: List[Survivor]
     save_zones: List[SaveZone]
-    round: int
-    steps: int
-    agents: List[AgentModel]
+    # robot_agents: mesa.agent.AgentSet
+    data_collector: mesa.DataCollector
 
     def __init__(
         self,
@@ -228,7 +339,7 @@ class EnvironmentModel(mesa.Model):
         height: int,
         n_survivors: int,
         n_save_zones: int,
-        n_agents: int,
+        n_robot_agents: int,
         seed=None,
     ):
         # Use the seed kwarg to control the random number generator for reproducibility.
@@ -236,8 +347,6 @@ class EnvironmentModel(mesa.Model):
 
         self.width = width
         self.height = height
-        self.round = 0
-        self.steps = 0
         self.survivors = []
         self.save_zones = []
         self.maze = {}
@@ -245,7 +354,44 @@ class EnvironmentModel(mesa.Model):
         self._create_save_zones(n_save_zones)
         self._create_survivors(n_survivors)
 
+        # setup data collection
+        self.data_collector = mesa.DataCollector(
+            model_reporters={
+                "Survivors": "survivors",
+                "SaveZones": "save_zones",
+                "MazeWidth": "width",
+                "MazeHeight": "height",
+                "AllSurvivorsRescued": self.all_survivors_rescued,
+            },
+            agent_reporters={
+                "Tile": "tile",
+                "TransportedSurvivor": "transported_survivor",
+                "TilesMoved": "tiles_moved",
+                "SurvivorsPickedUp": "survivors_picked_up",
+                "SurvivorsPlacedDown": "survivors_placed_down",
+            },
+        )
+
         # TODO: create agents
+        # start tile for the agents is a save_zone tile
+        start_tile: Tile = None
+        if self.save_zones:
+            start_tile = random.choice(self.save_zones).tile
+        else:
+            start_tile = Tile.get_tile_in_list_by_pos(
+                0, 0, Tile.transform_dict_to_tiles(self.maze)
+            )  # TODO: check if this is correct
+        RobotAgent.create_agents(self, n_robot_agents, start_tile)
+
+        # end -> collect data
+        self.running = True
+        self.data_collector.collect(self)
+
+    # MESA
+    def step(self) -> None:
+        # activate all agents
+        self.agents.do("step")
+        self.data_collector.collect(self)
 
     # MAZE GENERATION (Task 1, 3)
     def _initialize_maze(
@@ -385,6 +531,9 @@ class EnvironmentModel(mesa.Model):
 
         return self.survivors
 
+    def all_survivors_rescued(self) -> bool:
+        return all(survivor.is_rescued for survivor in self.survivors)
+
     # MAZE METRICS (Task 2)
     # pathlengths
     def get_pathlengths(self) -> List[int]:
@@ -462,8 +611,10 @@ class EnvironmentModel(mesa.Model):
             label += str(tile.x) + "," + str(tile.y)
             labeldict[tile] = label
 
+        positioning = nx.spring_layout(G, seed=100)
         nx.draw(
             G,
+            pos=positioning,
             with_labels=True,
             labels=labeldict,
             node_size=40,
@@ -592,16 +743,12 @@ class EnvironmentModel(mesa.Model):
         height = self.height
         n_survivors = len(self.survivors)
         n_save_zones = len(self.save_zones)
-        rounds = self.round
-        steps = self.steps
 
         print("Maze Metrics:")
         print("Width: ", width)
         print("Height: ", height)
         print("Number of Survivors: ", n_survivors)
         print("Number of Save Zones: ", n_save_zones)
-        print("Rounds: ", rounds)
-        print("Steps: ", steps)
 
         # Pathlengths
         pathlengths = self.get_pathlengths()
