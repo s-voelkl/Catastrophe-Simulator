@@ -350,14 +350,14 @@ class EnvironmentModel(mesa.Model):
             if 1 not in tile.walls.values():
                 continue
 
-            # tile cant be at the borders (top, right, bottom, left)
-            if (
-                tile.x == 0
-                or tile.x == self.width - 1
-                or tile.y == 0
-                or tile.y == self.height - 1
-            ):
-                continue
+            # ignored now: tile cant be at the borders (top, right, bottom, left)
+            # if (
+            #     tile.x == 0
+            #     or tile.x == self.width - 1
+            #     or tile.y == 0
+            #     or tile.y == self.height - 1
+            # ):
+            #     continue
 
             # if tile is already a save zone, skip it
             for sz in self.save_zones:
