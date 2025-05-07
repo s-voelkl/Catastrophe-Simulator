@@ -588,6 +588,7 @@ class EnvironmentModel(mesa.Model):
     #     pass
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
+
     def visualize_graph(self) -> None:
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
 
@@ -596,32 +597,55 @@ class EnvironmentModel(mesa.Model):
         labeldict = {}
         for tile in tiles:
             label: str = ""
+            survivors: int = 0
+            save_zones: int = 0
+            agents: int = 0
+
             # if tile is survivor, add a "SURV" to it.
-            if (tile.x, tile.y) in ((su.tile.x, su.tile.y) for su in self.survivors):
-                label = "SURV\n"
+            for s in self.survivors:
+                if tile.x == s.tile.x and tile.y == s.tile.y:
+                    survivors += 1
+            if survivors == 1:
+                label += "SURV\n"
+            elif survivors > 1:
+                label += str(survivors) + "SURVs\n"
 
             # if tile is save zone, add a "SAVEZONE" to it.
-            if (tile.x, tile.y) in ((sz.tile.x, sz.tile.y) for sz in self.save_zones):
-                label = "SAVE\n"
+            for sz in self.save_zones:
+                if tile.x == sz.tile.x and tile.y == sz.tile.y:
+                    save_zones += 1
+            if save_zones == 1:
+                label += "SAVE\n"
+            elif save_zones > 1:
+                label += str(save_zones) + "SAVEs\n"
 
             # if tile is agent, add a "AGENT" to it.
-            if (tile.x, tile.y) in ((ag.tile.x, ag.tile.y) for ag in self.agents):
-                label = "AGENT\n"
+            for ag in self.agents:
+                if tile.x == ag.tile.x and tile.y == ag.tile.y:
+                    agents += 1
+            if agents == 1:
+                label += "AGENT\n"
+            elif agents > 1:
+                label += str(agents) + "AGENTs\n"
 
             label += str(tile.x) + "," + str(tile.y)
             labeldict[tile] = label
 
-        positioning = nx.spring_layout(G, seed=100)
+        positioning = {}
+        for tile in tiles:
+            # position the tile in the graph
+            positioning[tile] = (tile.x, tile.y)
+
         nx.draw(
             G,
             pos=positioning,
             with_labels=True,
             labels=labeldict,
             node_size=40,
-            node_color="lightgreen",
+            node_color="lightblue",
             font_size=10,
             font_color="black",
-            edge_color="grey",
+            edge_color="gray",
         )
         plt.savefig(GRAPH_VISUALISATION_FILE, dpi=300, bbox_inches="tight")
         plt.show()

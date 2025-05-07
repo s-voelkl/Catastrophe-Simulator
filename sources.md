@@ -26,6 +26,7 @@ https://github.com/MAN1986/pyamaze/blob/main/pyamaze/pyamaze.py
 NetworkX:
 https://stackoverflow.com/questions/28533111/plotting-networkx-graph-with-node-labels-defaulting-to-node-name
 https://stackoverflow.com/questions/53734823/why-does-networkx-redraw-my-graph-different-each-run
+https://networkx.org/grave/latest/gallery/plot_grid.html
 
 Matplotlib:
 https://stackoverflow.com/questions/9012487/savefig-outputs-blank-image
