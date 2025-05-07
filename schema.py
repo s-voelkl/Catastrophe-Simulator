@@ -296,29 +296,91 @@ class RobotAgent(mesa.Agent):
         return Survivor
 
     def move_to_save_zone(self) -> Tile:
-        print("Moving to save zone...")
-        # TODO
-        # get nearest savezone
+        possible_routes: Dict[SaveZone, List[Tile]] = {}
 
-        # find route to savezone
-        # route: List[Tile] = self.find_route()
+        # get nearest survivor, that is not Survivor.rescued
+        for sz in self.model.save_zones:
+            if sz:
+                continue
 
-        # self.tiles_moved += len(route)
+            # skip survivors on same tile
+            if sz.tile.x == self.tile.x and sz.tile.y == self.tile.y:
+                continue
+
+            # find route to survivor
+            possible_routes[sz] = self.find_route(sz.tile)
+
+        if not possible_routes:
+            print("No possible routes to save zones.")
+            return self.tile
+
+        # get fastest route to save_zone: sort dict by len(List[Tile]) ascending, take first element
+        sorted_routes = sorted(possible_routes.items(), key=lambda path: len(path[1]))
+        target_save_zone, route = sorted_routes[0]
+
+        if not route:
+            print("No route to a save zone possible.")
+            return self.tile
+
+        # Move along the route to the save zone
+        self.change_tile(route[-1])
+        self.tiles_moved += len(route) - 1  # TODO: check correctness
+        print(
+            f"Agent {self.unique_id} moved to save zone at ({target_save_zone.tile.x}, {target_save_zone.tile.y})"
+        )
+
         return self.tile
 
     def move_to_survivor(self) -> Tile:
-        print("Moving to survivor...")
+        possible_routes: Dict[Survivor, List[Tile]] = {}
 
-        # TODO
         # get nearest survivor, that is not Survivor.rescued
+        for s in self.model.survivors:
+            if s.is_rescued:
+                continue
 
-        # find route to survivor
-        # route: List[Tile] = self.find_route()
+            # skip survivors on same tile
+            if s.tile.x == self.tile.x and s.tile.y == self.tile.y:
+                continue
 
-        # self.tiles_moved += len(route)
+            # find route to survivor
+            possible_routes[s] = self.find_route(s.tile)
+
+        if not possible_routes:
+            print("No possible routes to survivors.")
+            return self.tile
+
+        # get fastest route to survivor: sort dict by len(List[Tile]) ascending, take first element
+        sorted_routes = sorted(possible_routes.items(), key=lambda path: len(path[1]))
+        target_survivor, route = sorted_routes[0]
+
+        if not route:
+            print("No route to a survivor possible.")
+            return self.tile
+
+        # Move along the route to the survivor
+        self.change_tile(route[-1])
+        self.tiles_moved += len(route) - 1  # TODO: check correctness
+        print(
+            f"Agent {self.unique_id} moved to survivor at ({target_survivor.tile.x}, {target_survivor.tile.y})"
+        )
+
         return self.tile
 
+    def change_tile(self, tile: Tile):
+        self.tile = tile
+
+        if self.transported_survivor is not None:
+            self.transported_survivor.tile = tile
+
     def find_route(self, target_tile: Tile) -> List[Tile]:
+        tiles: List[Tile] = Tile.transform_dict_to_tiles(self.model.maze)
+        graph: nx.graph = Tile.transform_tiles_to_graph(tiles)
+        route: List[Tile] = []
+
+        # A-Star algorithm here
+
+        # return [random.choices(tiles, k=8)]
         return []
 
 
@@ -620,7 +682,7 @@ class EnvironmentModel(mesa.Model):
                 label += str(save_zones) + "SAVEs\n"
 
             # if tile is agent, add a "AGENT" to it.
-            for ag in self.agents:
+            for ag in self.agents_by_type[RobotAgent]:
                 if tile.x == ag.tile.x and tile.y == ag.tile.y:
                     agents += 1
             if agents == 1:

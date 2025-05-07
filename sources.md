@@ -14,6 +14,8 @@ https://networkx.org/documentation/stable/reference/algorithms/generated/network
 
 Search Algorithm:
 https://de.wikipedia.org/wiki/Manhattan-Metrik
+https://de.wikipedia.org/wiki/A*-Algorithmus
+https://robotics.caltech.edu/wiki/images/e/e0/Astar.pdf
 
 PACKAGES:
 Mesa:
