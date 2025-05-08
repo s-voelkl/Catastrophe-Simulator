@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple, Set
+from typing import Tuple
 
 
 def transform_coord_for_visualization(
