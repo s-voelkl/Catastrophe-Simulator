@@ -250,6 +250,8 @@ class Tile(Position):
                     route.append(node)
                     node = parent_pointers[node]
                 route.reverse()
+
+                # returns the list from start to end, without the start tile
                 return route
 
             # generate each neighbor of the node
@@ -432,7 +434,7 @@ class RobotAgent(mesa.Agent):
 
         # Move along the route to the save zone
         self.change_tile(route[-1])
-        self.tiles_moved += len(route) - 1  # TODO: check correctness
+        self.tiles_moved += len(route)
         print(
             f"Agent {self.unique_id} moved to save zone at ({target_save_zone.tile.x}, {target_save_zone.tile.y})"
         )
@@ -474,7 +476,7 @@ class RobotAgent(mesa.Agent):
         # Move along the route to the survivor
         start_tile: Tile = self.tile
         self.change_tile(route[-1])
-        self.tiles_moved += len(route)  # TODO: check correctness
+        self.tiles_moved += len(route)
         print(
             f"Agent {self.unique_id} ({start_tile.x}, {start_tile.y}) moved to survivor at ({target_survivor.tile.x}, {target_survivor.tile.y})"
         )
