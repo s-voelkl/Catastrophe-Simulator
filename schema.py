@@ -188,6 +188,112 @@ class Tile(Position):
 
         return G
 
+    def find_route(
+        maze: Dict[Tuple[int, int], Dict[str, int]], start_tile, target_tile
+    ) -> List:
+        tiles: List[Tile] = Tile.transform_dict_to_tiles(maze)
+        G: nx.Graph = Tile.transform_tiles_to_graph(tiles)
+
+        # get start & end node as node in the graph
+        start_node: Tile = None
+        for node in G.nodes:
+            if node.x == start_tile.x and node.y == start_tile.y:
+                start_node = node
+                break
+
+        end_node: Tile = None
+        for node in G.nodes:
+            if node.x == target_tile.x and node.y == target_tile.y:
+                end_node = node
+                break
+
+        if not start_node:
+            print("Start node not found in graph.")
+            return []
+
+        if not end_node:
+            print("End node not found in graph.")
+            return []
+
+        if start_node == end_node:
+            print("Start and end node are the same.")
+            return []
+
+        # resulting route, made by parent_pointers
+        route: List[Tile] = []
+
+        # open list. Tile and the f(n) = g(n) + h(n).
+        # g(n): Cost so far
+        # h(n): heuristic - manhattan distance to the target_tile
+        # Tile -> ( f(n), g(n), h(n) )
+        h_start_node: int = manhattan_distance(
+            (start_tile.x, start_tile.y), (end_node.x, end_node.y)
+        )
+        frontier: Dict[Tile, Tuple[int, int, int]] = {
+            start_node: (h_start_node + 0, 0, h_start_node)
+        }
+        visited: Dict[Tile, Tuple[int, int, int]] = dict()  # closed list
+        parent_pointers: Dict[Tile, Tile] = dict()  # child -> parent
+
+        while frontier:
+            # get node with the least f(n) value, add it to visited
+            node = sort_dict_by_val_asc(frontier)[0][0]
+            node_costs: Tuple[int, int, int] = frontier[node]
+            visited[node] = node_costs
+            frontier.pop(node)
+            # print(f"Visiting node ({node.x},{node.y}) with costs fgh{node_costs}")
+
+            # if goal reached
+            if node == end_node:
+                # reconstruct the path from the target tile to the start tile
+                while node in parent_pointers:
+                    route.append(node)
+                    node = parent_pointers[node]
+                route.reverse()
+
+                # returns the list from start to end, without the start tile
+                return route
+
+            # generate each neighbor of the node
+            for neighbor in G.neighbors(node):
+                # set parent of neighbor to node
+
+                # get f(neighbor)
+                g_neighbor: int = 1 + node_costs[1]  # g(n') = g(n) + 1
+                h_neighbor: int = manhattan_distance(
+                    (neighbor.x, neighbor.y), (end_node.x, end_node.y)
+                )
+                f_neighbor: int = g_neighbor + h_neighbor
+                # print(
+                #     f"- Neighbor ({neighbor.x},{neighbor.y}) with costs fgh({f_neighbor}, {g_neighbor}, {h_neighbor})"
+                # )
+
+                # skip worse/equal neighbor values in the frontier
+                if neighbor in frontier.keys() and f_neighbor >= frontier[neighbor][0]:
+                    continue
+
+                # skip worse/equal neighbor values in the visited
+                if neighbor in visited.keys() and f_neighbor >= visited[neighbor][0]:
+                    continue
+
+                if neighbor in frontier.keys():
+                    frontier.pop(neighbor)
+                if neighbor in visited.keys():
+                    visited.pop(neighbor)
+
+                frontier[neighbor] = (f_neighbor, g_neighbor, h_neighbor)
+                parent_pointers[neighbor] = node
+                # print(
+                #     f"- Added parent pointer: ({neighbor.x}, {neighbor.y}) -> ({node.x}, {node.y})"
+                # )
+
+        # reconstructed path -> route
+        if not route:
+            print("No route found.")
+            return []
+
+        return route
+
 
 class Survivor:
     tile: Tile
@@ -242,7 +348,9 @@ class RobotAgent(mesa.Agent):
 
     def step(self):
         # if on save zone
-        if self.tile in [sz.tile for sz in self.model.save_zones]:
+        if (self.tile.x, self.tile.y) in [
+            (sz.tile.x, sz.tile.y) for sz in self.model.save_zones
+        ]:
             # with survivor: place down
             if self.transported_survivor is not None:
                 print("Transporting survivor. Placing survivor down")
@@ -267,7 +375,7 @@ class RobotAgent(mesa.Agent):
             print("Not transporting survivor. Trying to pick up survivor")
             self.pick_up_survivor()
 
-            if self.transported_survivor is not None:
+            if self.transported_survivor is None:
                 print("No survivor found")
             return
 
@@ -296,30 +404,90 @@ class RobotAgent(mesa.Agent):
         return Survivor
 
     def move_to_save_zone(self) -> Tile:
-        print("Moving to save zone...")
-        # TODO
-        # get nearest savezone
+        possible_routes: Dict[SaveZone, List[Tile]] = {}
 
-        # find route to savezone
-        # route: List[Tile] = self.find_route()
+        # get nearest save zone
+        for sz in self.model.save_zones:
+            # skip save zones on same tile
+            if sz.tile.x == self.tile.x and sz.tile.y == self.tile.y:
+                continue
 
-        # self.tiles_moved += len(route)
+            # find route to save zone
+            possible_routes[sz] = Tile.find_route(self.model.maze, self.tile, sz.tile)
+
+        if not possible_routes:
+            print("No possible routes to save zones.")
+            return self.tile
+
+        # get fastest route to save_zone: sort dict by len(List[Tile]) ascending, take first element
+        sorted_routes = sorted(possible_routes.items(), key=lambda path: len(path[1]))
+        # for route in sorted_routes:
+        #     print(
+        #         f"Route to save zone ({route[0].tile.x}, {route[0].tile.y}) with length {len(route[1])}"
+        #     )
+
+        target_save_zone, route = sorted_routes[0]
+
+        if not route:
+            print("No route to a save zone possible.")
+            return self.tile
+
+        # Move along the route to the save zone
+        self.change_tile(route[-1])
+        self.tiles_moved += len(route)
+        print(
+            f"Agent {self.unique_id} moved to save zone at ({target_save_zone.tile.x}, {target_save_zone.tile.y})"
+        )
+
         return self.tile
 
     def move_to_survivor(self) -> Tile:
-        print("Moving to survivor...")
+        possible_routes: Dict[Survivor, List[Tile]] = {}
 
-        # TODO
         # get nearest survivor, that is not Survivor.rescued
+        for s in self.model.survivors:
+            if s.is_rescued:
+                continue
 
-        # find route to survivor
-        # route: List[Tile] = self.find_route()
+            # skip survivors on same tile
+            if s.tile.x == self.tile.x and s.tile.y == self.tile.y:
+                continue
 
-        # self.tiles_moved += len(route)
+            # find route to survivor
+            possible_routes[s] = Tile.find_route(self.model.maze, self.tile, s.tile)
+
+        if not possible_routes:
+            print("No possible routes to survivors.")
+            return self.tile
+
+        # get fastest route to survivor: sort dict by len(List[Tile]) ascending, take first element
+        sorted_routes = sorted(possible_routes.items(), key=lambda path: len(path[1]))
+        # for route in sorted_routes:
+        #     print(
+        #         f"Route to survivor ({route[0].tile.x}, {route[0].tile.y}) with length {len(route[1])}"
+        #     )
+
+        target_survivor, route = sorted_routes[0]
+
+        if not route:
+            print("No route to a survivor possible.")
+            return self.tile
+
+        # Move along the route to the survivor
+        start_tile: Tile = self.tile
+        self.change_tile(route[-1])
+        self.tiles_moved += len(route)
+        print(
+            f"Agent {self.unique_id} ({start_tile.x}, {start_tile.y}) moved to survivor at ({target_survivor.tile.x}, {target_survivor.tile.y})"
+        )
+
         return self.tile
 
-    def find_route(self, target_tile: Tile) -> List[Tile]:
-        return []
+    def change_tile(self, tile: Tile):
+        self.tile = tile
+
+        if self.transported_survivor is not None:
+            self.transported_survivor.tile = tile
 
 
 class EnvironmentModel(mesa.Model):
@@ -361,6 +529,11 @@ class EnvironmentModel(mesa.Model):
                 "MazeWidth": "width",
                 "MazeHeight": "height",
                 "AllSurvivorsRescued": self.all_survivors_rescued,
+                "PathLengthsSaveZonesToSurvivors": self.get_pathlengths_savezones_to_survivors,
+                "MeanWallDensity": self.get_mean_wall_density,
+                "HorizontalSymmetry": self.check_horizontal_symmetry,
+                "VeticalSymmetry": self.check_vertical_symmetry,
+                "ExitCount": self.get_exit_count,
             },
             agent_reporters={
                 "Tile": "tile",
@@ -532,10 +705,35 @@ class EnvironmentModel(mesa.Model):
         return all(survivor.is_rescued for survivor in self.survivors)
 
     # MAZE METRICS (Task 2)
-    # pathlengths
-    def get_pathlengths(self) -> List[int]:
-        # TODO: Implement pathlength calculation for the maze
-        return [1, 2, 3, 4, 5]
+    def get_pathlengths_savezone_to_survivors(self, save_zone: SaveZone) -> List[int]:
+        pathlengths: List[int] = []
+
+        for s in self.survivors:
+            if s.is_rescued:
+                continue
+
+            # find route from save zone to survivor
+            route: List[Tile] = Tile.find_route(self.maze, save_zone.tile, s.tile)
+            if not route:
+                print(
+                    f"No route found from save zone ({save_zone.tile.x}, {save_zone.tile.y}) "
+                    + f"to survivor ({s.tile.x}, {s.tile.y})"
+                )
+                continue
+
+            pathlengths.append(len(route))
+        return pathlengths
+
+    def get_pathlengths_savezones_to_survivors(self) -> List[int]:
+        pathlengths: List[int] = []
+
+        for sz in self.save_zones:
+            save_zone_pathlengths: List[int] = (
+                self.get_pathlengths_savezone_to_survivors(sz)
+            )
+            pathlengths.extend(save_zone_pathlengths)
+
+        return pathlengths
 
     def get_max_pathlength(self, pathlengths: List[int]) -> int:
         return max(pathlengths) if pathlengths else 0
@@ -585,6 +783,7 @@ class EnvironmentModel(mesa.Model):
     #     pass
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
+
     def visualize_graph(self) -> None:
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
 
@@ -593,32 +792,55 @@ class EnvironmentModel(mesa.Model):
         labeldict = {}
         for tile in tiles:
             label: str = ""
+            survivors: int = 0
+            save_zones: int = 0
+            agents: int = 0
+
             # if tile is survivor, add a "SURV" to it.
-            if (tile.x, tile.y) in ((su.tile.x, su.tile.y) for su in self.survivors):
-                label = "SURV\n"
+            for s in self.survivors:
+                if tile.x == s.tile.x and tile.y == s.tile.y:
+                    survivors += 1
+            if survivors == 1:
+                label += "SURV\n"
+            elif survivors > 1:
+                label += str(survivors) + "SURVs\n"
 
             # if tile is save zone, add a "SAVEZONE" to it.
-            if (tile.x, tile.y) in ((sz.tile.x, sz.tile.y) for sz in self.save_zones):
-                label = "SAVE\n"
+            for sz in self.save_zones:
+                if tile.x == sz.tile.x and tile.y == sz.tile.y:
+                    save_zones += 1
+            if save_zones == 1:
+                label += "SAVE\n"
+            elif save_zones > 1:
+                label += str(save_zones) + "SAVEs\n"
 
             # if tile is agent, add a "AGENT" to it.
-            if (tile.x, tile.y) in ((ag.tile.x, ag.tile.y) for ag in self.agents):
-                label = "AGENT\n"
+            for ag in self.agents_by_type[RobotAgent]:
+                if tile.x == ag.tile.x and tile.y == ag.tile.y:
+                    agents += 1
+            if agents == 1:
+                label += "AGENT\n"
+            elif agents > 1:
+                label += str(agents) + "AGENTs\n"
 
             label += str(tile.x) + "," + str(tile.y)
             labeldict[tile] = label
 
-        positioning = nx.spring_layout(G, seed=100)
+        positioning = {}
+        for tile in tiles:
+            # position the tile in the graph
+            positioning[tile] = (tile.x, tile.y)
+
         nx.draw(
             G,
             pos=positioning,
             with_labels=True,
             labels=labeldict,
             node_size=40,
-            node_color="lightgreen",
+            node_color="lightblue",
             font_size=10,
             font_color="black",
-            edge_color="grey",
+            edge_color="gray",
         )
         plt.savefig(GRAPH_VISUALISATION_FILE, dpi=300, bbox_inches="tight")
         plt.show()
