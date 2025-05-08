@@ -1,11 +1,37 @@
 import dataclasses
 from typing import Dict, List, Tuple
+from enum import Enum, auto
 
 
 @dataclasses.dataclass
 class Position:
     x: int
     y: int
+
+
+class Direction(Enum):
+    NORTH = auto()
+    EAST = auto()
+    SOUTH = auto()
+    WEST = auto()
+
+    @property
+    def dxdy(self):
+        return {
+            Direction.NORTH: (0, -1),
+            Direction.SOUTH: (0, 1),
+            Direction.EAST: (1, 0),
+            Direction.WEST: (-1, 0),
+        }[self]
+
+    @property
+    def opposite(self):
+        return {
+            Direction.NORTH: Direction.SOUTH,
+            Direction.SOUTH: Direction.NORTH,
+            Direction.EAST: Direction.WEST,
+            Direction.WEST: Direction.EAST,
+        }[self]
 
 
 @dataclasses.dataclass
@@ -15,133 +41,26 @@ class Tile(Position):
     south: int = dataclasses.field(default=1, init=True)
     west: int = dataclasses.field(default=1, init=True)
 
-    #    def to_dict(self) -> Dict:
-    #        return {
-    #            "N": self.north,
-    #            "E": self.east,
-    #            "S": self.south,
-    #            "W": self.west,
-    #        }
-
     def count_walls(self):
         return self.north + self.east + self.south + self.west
 
+    def count_openings(self):
+        return 4 - self.count_walls()
 
-test_maze = {
-    (0, 0): {"N": 1, "E": 0, "S": 1, "W": 1},
-    (1, 0): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (2, 0): {"N": 1, "E": 0, "S": 1, "W": 1},
-    (3, 0): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (4, 0): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (5, 0): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (6, 0): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (7, 0): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (8, 0): {"N": 1, "E": 0, "S": 1, "W": 1},
-    (9, 0): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (0, 1): {"N": 0, "E": 1, "S": 1, "W": 1},
-    (1, 1): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (2, 1): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (3, 1): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (4, 1): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (5, 1): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (6, 1): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (7, 1): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (8, 1): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (9, 1): {"N": 0, "E": 0, "S": 0, "W": 1},
-    (0, 2): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (1, 2): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (2, 2): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (3, 2): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (4, 2): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (5, 2): {"N": 0, "E": 0, "S": 1, "W": 0},
-    (6, 2): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (7, 2): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (8, 2): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (9, 2): {"N": 0, "E": 1, "S": 0, "W": 0},
-    (0, 3): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (1, 3): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (2, 3): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (3, 3): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (4, 3): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (5, 3): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (6, 3): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (7, 3): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (8, 3): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (9, 3): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (0, 4): {"N": 0, "E": 0, "S": 0, "W": 1},
-    (1, 4): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (2, 4): {"N": 0, "E": 0, "S": 1, "W": 0},
-    (3, 4): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (4, 4): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (5, 4): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (6, 4): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (7, 4): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (8, 4): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (9, 4): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (0, 5): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (1, 5): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (2, 5): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (3, 5): {"N": 0, "E": 0, "S": 1, "W": 0},
-    (4, 5): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (5, 5): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (6, 5): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (7, 5): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (8, 5): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (9, 5): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (0, 6): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (1, 6): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (2, 6): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (3, 6): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (4, 6): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (5, 6): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (6, 6): {"N": 0, "E": 1, "S": 1, "W": 1},
-    (7, 6): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (8, 6): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (9, 6): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (0, 7): {"N": 0, "E": 0, "S": 0, "W": 1},
-    (1, 7): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (2, 7): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (3, 7): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (4, 7): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (5, 7): {"N": 1, "E": 0, "S": 1, "W": 1},
-    (6, 7): {"N": 1, "E": 0, "S": 0, "W": 0},
-    (7, 7): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (8, 7): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (9, 7): {"N": 1, "E": 1, "S": 0, "W": 0},
-    (0, 8): {"N": 0, "E": 1, "S": 0, "W": 1},
-    (1, 8): {"N": 1, "E": 0, "S": 1, "W": 1},
-    (2, 8): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (3, 8): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (4, 8): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (5, 8): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (6, 8): {"N": 0, "E": 0, "S": 1, "W": 1},
-    (7, 8): {"N": 0, "E": 1, "S": 1, "W": 0},
-    (8, 8): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (9, 8): {"N": 0, "E": 0, "S": 1, "W": 0},
-    (0, 9): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (1, 9): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (2, 9): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (3, 9): {"N": 1, "E": 0, "S": 0, "W": 0},
-    (4, 9): {"N": 1, "E": 1, "S": 1, "W": 0},
-    (5, 9): {"N": 0, "E": 0, "S": 0, "W": 1},
-    (6, 9): {"N": 0, "E": 1, "S": 0, "W": 0},
-    (7, 9): {"N": 1, "E": 0, "S": 0, "W": 1},
-    (8, 9): {"N": 1, "E": 0, "S": 1, "W": 0},
-    (9, 9): {"N": 1, "E": 1, "S": 0, "W": 0},
-}
+    def get_wall_densitiy(self):
+        return self.count_walls() / self.count_openings()
 
 
 @dataclasses.dataclass
 class Maze:
+    width: int = dataclasses.field(default=10, init=True)
+    height: int = dataclasses.field(default=10, init=True)
+
     # y is row number [0, height-1]
     # x is col number [0, width-1]
     tile_grid: List[List[Tile]] | None = dataclasses.field(default=None, init=False)
-
     save_zones: List[Position] | None = dataclasses.field(default=None, init=False)
     survivors: List[Position] | None = dataclasses.field(default=None, init=False)
-
-    width: int = dataclasses.field(default=10, init=True)
-    height: int = dataclasses.field(default=10, init=True)
 
     def __post_init__(self):
         if self.tile_grid is None:
@@ -162,6 +81,19 @@ class Maze:
         if 0 <= tile.y < self.height and 0 <= tile.x < self.width:
             self.tile_grid[tile.y][tile.x] = tile
 
+    def set_wall(self, tile: Tile, direction: Direction, wall: int) -> None:
+        # Remove: wall = 0; Add: wall = 1
+        # Remove/Add wall on this tile
+        setattr(tile, direction.name.lower(), wall)
+
+        dx, dy = direction.dxdy
+        nx, ny = tile.x + dx, tile.y + dy
+
+        # Remove/Add wall from neighbor if exists and inside maze
+        if 0 <= nx < self.width and 0 <= ny < self.height:
+            neighbor = self.get_tile(nx, ny)
+            setattr(neighbor, direction.opposite.name.lower(), wall)
+
     def get_neighbors(self, tile: Tile) -> List[Tile]:
         neighbors = []
 
@@ -175,23 +107,6 @@ class Maze:
             neighbors.append(self.get_tile(tile.x - 1, tile.y))
 
         return [tile for tile in neighbors if tile is not None]
-
-    def transform_dict_to_tiles(
-        self,
-        maze_dict: Dict[Tuple[int, int], Dict[str, int]],
-    ) -> None:
-        # transform the dictionary of tiles into a list of tiles
-
-        for pos, walls in maze_dict.items():
-            tile = Tile(
-                x=pos[0],
-                y=pos[1],
-                north=walls["N"],
-                east=walls["E"],
-                south=walls["S"],
-                west=walls["W"],
-            )
-            self.set_tile(tile)
 
     def print(self):
         height = self.height
@@ -220,12 +135,21 @@ class Maze:
 
         print("╚" + "╧".join(["═════"] * width) + "╝")
 
+    # TODO check if still needed
+    # maybe rename to from_dict()
+    def transform_dict_to_tiles(
+        self,
+        maze_dict: Dict[Tuple[int, int], Dict[str, int]],
+    ) -> None:
+        # transform the dictionary of tiles into a list of tiles
 
-def main():
-    m = Maze(height=10, width=10)
-    m.transform_dict_to_tiles(test_maze)
-    m.print()
-
-
-if __name__ == "__main__":
-    main()
+        for pos, walls in maze_dict.items():
+            tile = Tile(
+                x=pos[0],
+                y=pos[1],
+                north=walls["N"],
+                east=walls["E"],
+                south=walls["S"],
+                west=walls["W"],
+            )
+            self.set_tile(tile)
