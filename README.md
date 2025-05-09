@@ -43,3 +43,24 @@ Environment.display() ??
 Environment.show_results() ??
 
 ## 6. Überlegen und implementieren Sie eine eigene Erweiterung des Systems
+
+.
+
+## Präsentation
+
+Visualisierung des Maze -> Metriken seitlich ausgeben
+Story: "Pyamaze -> Console -> NetworkX"
+
+random DFS
+Survivor und Save Zones platzieren
+steps von Model und RobotAgent (Survivor platziert, aufnimmt, move)
+
+Erweiterung: batch run o.ä.
+batch run 50x starten -> funktioniert
+
+Analyse aus vergangenen batch runs mit 500+ runs
+
+- tiles moved
+- ...
+
+Erkenntnisse zusammenfassen -> Ausblick mit mehr
