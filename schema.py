@@ -359,7 +359,9 @@ class RobotAgent(mesa.Agent):
         if self.transported_survivor is None:
             survivor = self.pick_up_survivor()
             if survivor is not None:
-                print(f"Picked up survivor at ({self.tile.x}, {self.tile.y})")
+                print(
+                    f"Agent {self.unique_id} picked up survivor at ({self.tile.x}, {self.tile.y})"
+                )
                 return
 
         # 2. place down survivor if existing and on save zone
@@ -367,14 +369,16 @@ class RobotAgent(mesa.Agent):
             for sz in self.model.save_zones:
                 if sz.tile.x == self.tile.x and sz.tile.y == self.tile.y:
                     self.place_down_survivor()
-                    print(f"Placed down survivor at ({self.tile.x}, {self.tile.y})")
+                    print(
+                        f"Agent {self.unique_id} placed down survivor at ({self.tile.x}, {self.tile.y})"
+                    )
                     return
 
         # if transporting survivor: move to save zone
         if self.transported_survivor is not None:
             self.move_to_save_zone()
             print(
-                f"Transporting survivor. Moved to save zone. ({self.tile.x}, {self.tile.y})"
+                f"Agent {self.unique_id} transporting survivor. Moved to save zone. ({self.tile.x}, {self.tile.y})"
             )
             return
 
@@ -382,7 +386,7 @@ class RobotAgent(mesa.Agent):
         if self.transported_survivor is None:
             self.move_to_survivor()
             print(
-                f"Not transporting survivor. Moved to next survivor. ({self.tile.x}, {self.tile.y})"
+                f"Agent {self.unique_id} not transporting survivor. Moved to next survivor. ({self.tile.x}, {self.tile.y})"
             )
             return
 
@@ -460,6 +464,20 @@ class RobotAgent(mesa.Agent):
             if s.is_rescued:
                 continue
 
+            # if survivor is already being transported by another agent, skip it
+            if any(
+                s == ts.transported_survivor
+                for ts in self.model.agents_by_type[RobotAgent]
+            ):
+                continue
+
+            # if survivor is on the same position as another agent, skip it
+            if any(
+                s.tile.x == ts.tile.x and s.tile.y == ts.tile.y
+                for ts in self.model.agents_by_type[RobotAgent]
+            ):
+                continue
+
             # find route to survivor
             possible_routes[s] = Tile.find_route(self.model.maze, self.tile, s.tile)
 
@@ -484,9 +502,9 @@ class RobotAgent(mesa.Agent):
         start_tile: Tile = self.tile
         self.change_tile(route[-1])
         self.tiles_moved += len(route)
-        print(
-            f"Agent {self.unique_id} ({start_tile.x}, {start_tile.y}) moved to survivor at ({target_survivor.tile.x}, {target_survivor.tile.y})"
-        )
+        # print(
+        #     f"Agent {self.unique_id} ({start_tile.x}, {start_tile.y}) moved to survivor at ({target_survivor.tile.x}, {target_survivor.tile.y})"
+        # )
 
         return self.tile
 
@@ -555,14 +573,15 @@ class EnvironmentModel(mesa.Model):
         )
 
         # start tile for the agents is a save_zone tile
-        start_tile: Tile = None
-        if self.save_zones:
-            start_tile = random.choice(self.save_zones).tile
-        else:
-            start_tile = Tile.get_tile_in_list_by_pos(
-                0, 0, Tile.transform_dict_to_tiles(self.maze)
-            )  # TODO: check if this is correct
-        RobotAgent.create_agents(self, n_robot_agents, start_tile)
+        for i in range(n_robot_agents):
+            start_tile: Tile = None
+            if self.save_zones:
+                start_tile = random.choice(self.save_zones).tile
+            else:
+                start_tile = Tile.get_tile_in_list_by_pos(
+                    0, 0, Tile.transform_dict_to_tiles(self.maze)
+                )
+            RobotAgent.create_agents(self, 1, start_tile)
 
         # end -> collect data
         self.datacollector.collect(self)
@@ -576,6 +595,7 @@ class EnvironmentModel(mesa.Model):
             return
 
         # activate all agents
+        print(f"--- Step: {self.steps} ---")
         self.agents.do("step")
         self.datacollector.collect(self)
 
