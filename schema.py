@@ -525,6 +525,10 @@ class EnvironmentModel(mesa.Model):
     # robot_agents: mesa.agent.AgentSet
     datacollector: mesa.DataCollector
     running: bool
+    total_tiles_moved: int
+    total_survivors_picked_up: int
+    total_survivors_placed_down: int
+    initial_pathlengths: List[int]
 
     def __init__(
         self,
@@ -547,6 +551,9 @@ class EnvironmentModel(mesa.Model):
         self._create_save_zones(n_save_zones)
         self._create_survivors(n_survivors)
         self.running = True
+        self.total_tiles_moved = 0
+        self.total_survivors_picked_up = 0
+        self.total_survivors_placed_down = 0
 
         # setup data collection
         self.datacollector = mesa.DataCollector(
@@ -556,11 +563,14 @@ class EnvironmentModel(mesa.Model):
                 "MazeWidth": "width",
                 "MazeHeight": "height",
                 "AllSurvivorsRescued": self.all_survivors_rescued,
-                "PathLengthsSaveZonesToSurvivors": self.get_pathlengths_savezones_to_survivors,
+                "InitialPathlengths": "initial_pathlengths",
                 "MeanWallDensity": self.get_mean_wall_density,
                 "HorizontalSymmetry": self.check_horizontal_symmetry,
                 "VeticalSymmetry": self.check_vertical_symmetry,
                 "ExitCount": self.get_exit_count,
+                "TotalTilesMoved": "total_tiles_moved",
+                "TotalSurvivorsPickedUp": "total_survivors_picked_up",
+                "TotalSurvivorsPlacedDown": "total_survivors_placed_down",
             },
             agent_reporters={
                 "Tile": "tile",
@@ -584,10 +594,22 @@ class EnvironmentModel(mesa.Model):
             RobotAgent.create_agents(self, 1, start_tile)
 
         # end -> collect data
+        self.initial_pathlengths = self.get_pathlengths_savezones_to_survivors()
         self.datacollector.collect(self)
 
     # MESA
     def step(self) -> None:
+        # metrics
+        self.total_tiles_moved = sum(
+            [agent.tiles_moved for agent in self.agents_by_type[RobotAgent]]
+        )
+        self.total_survivors_picked_up = sum(
+            [agent.survivors_picked_up for agent in self.agents_by_type[RobotAgent]]
+        )
+        self.total_survivors_placed_down = sum(
+            [agent.survivors_placed_down for agent in self.agents_by_type[RobotAgent]]
+        )
+
         # simulation stop
         if self.all_survivors_rescued():
             print("All survivors rescued. Stopping simulation.")
@@ -762,30 +784,28 @@ class EnvironmentModel(mesa.Model):
 
         return pathlengths
 
-    def get_max_pathlength(self, pathlengths: List[int]) -> int:
+    def get_max_pathlength(pathlengths: List[int]) -> int:
         return max(pathlengths) if pathlengths else 0
 
-    def get_min_pathlength(self, pathlengths: List[int]) -> int:
+    def get_min_pathlength(pathlengths: List[int]) -> int:
         return min(pathlengths) if pathlengths else 0
 
-    def get_mean_pathlength(self, pathlengths: List[int]) -> float:
+    def get_mean_pathlength(pathlengths: List[int]) -> float:
         if len(pathlengths) == 0:
             return 0.0
         return sum(pathlengths) / len(pathlengths)
 
     # Wall density
-    def __get_walls_per_tile(self) -> List[int]:
-        # TODO: Implement calculation for the wall count for each tile -> List[int]
-        return [1, 2, 3, 4, 5]
-
     def get_mean_wall_density(self) -> int:
-        wall_densities: List[int] = self.__get_walls_per_tile()
+        G: nx.Graph = Tile.transform_tiles_to_graph(
+            Tile.transform_dict_to_tiles(self.maze)
+        )
 
-        if len(wall_densities) == 0:
-            return 0
+        n_edges = G.size()
+        n_nodes = G.number_of_nodes()
+        max_edges: int = 2 * self.width * self.height - self.width - self.height
 
-        n_tiles = len(wall_densities)
-        density = sum(wall_densities) / n_tiles
+        density = n_edges / max_edges if max_edges > 0 else 0
         return density
 
     # count of exits
@@ -996,10 +1016,10 @@ class EnvironmentModel(mesa.Model):
         print("Number of Save Zones: ", n_save_zones)
 
         # Pathlengths
-        pathlengths = self.get_pathlengths()
-        min_pathlength = self.get_min_pathlength(pathlengths)
-        mean_pathlength = self.get_mean_pathlength(pathlengths)
-        max_pathlength = self.get_max_pathlength(pathlengths)
+        pathlengths = self.get_pathlengths_savezones_to_survivors()
+        min_pathlength = EnvironmentModel.get_min_pathlength(pathlengths)
+        mean_pathlength = EnvironmentModel.get_mean_pathlength(pathlengths)
+        max_pathlength = EnvironmentModel.get_max_pathlength(pathlengths)
 
         print("Min Pathlength: ", min_pathlength)
         print("Mean Pathlength: ", mean_pathlength)
