@@ -208,15 +208,15 @@ class Tile(Position):
                 break
 
         if not start_node:
-            print("Start node not found in graph.")
+            # print("Start node not found in graph.")
             return []
 
         if not end_node:
-            print("End node not found in graph.")
+            # print("End node not found in graph.")
             return []
 
         if start_node == end_node:
-            print("Start and end node are the same.")
+            # print("Start and end node are the same.")
             return []
 
         # resulting route, made by parent_pointers
@@ -328,6 +328,7 @@ class RobotAgent(mesa.Agent):
     tiles_moved: int
     survivors_picked_up: int
     survivors_placed_down: int
+    running: bool
 
     def __init__(self, model, tile: Tile):
         """Create a new agent.
@@ -345,38 +346,44 @@ class RobotAgent(mesa.Agent):
         self.tiles_moved = 0
         self.survivors_picked_up = 0
         self.survivors_placed_down = 0
+        self.running = True
 
     def step(self):
-        # if on save zone
-        if (self.tile.x, self.tile.y) in [
-            (sz.tile.x, sz.tile.y) for sz in self.model.save_zones
-        ]:
-            # with survivor: place down
-            if self.transported_survivor is not None:
-                print("Transporting survivor. Placing survivor down")
-                self.place_down_survivor()
-                return
+        self.running = True
 
-            # without survivor: move next
-            if self.transported_survivor is None:
-                print("Not transporting survivor. Moving to next survivor")
-                self.move_to_survivor()
-                return
-
-        # if not on save zone
-        # if having survivor -> move to save zone
-        if self.transported_survivor is not None:
-            print("Transporting survivor. Moving")
-            self.move_to_save_zone()
+        if self.model.all_survivors_rescued():
+            self.running = False
             return
 
-        # if not on save zone and no survivor
+        # 1. if not transporting survivor: pick up survivor if it not being rescued already
         if self.transported_survivor is None:
-            print("Not transporting survivor. Trying to pick up survivor")
-            self.pick_up_survivor()
+            survivor = self.pick_up_survivor()
+            if survivor is not None:
+                print(f"Picked up survivor at ({self.tile.x}, {self.tile.y})")
+                return
 
-            if self.transported_survivor is None:
-                print("No survivor found")
+        # 2. place down survivor if existing and on save zone
+        if self.transported_survivor is not None:
+            for sz in self.model.save_zones:
+                if sz.tile.x == self.tile.x and sz.tile.y == self.tile.y:
+                    self.place_down_survivor()
+                    print(f"Placed down survivor at ({self.tile.x}, {self.tile.y})")
+                    return
+
+        # if transporting survivor: move to save zone
+        if self.transported_survivor is not None:
+            self.move_to_save_zone()
+            print(
+                f"Transporting survivor. Moved to save zone. ({self.tile.x}, {self.tile.y})"
+            )
+            return
+
+        # if not transporting survivor: move to survivor
+        if self.transported_survivor is None:
+            self.move_to_survivor()
+            print(
+                f"Not transporting survivor. Moved to next survivor. ({self.tile.x}, {self.tile.y})"
+            )
             return
 
     def place_down_survivor(self, rescued: bool = True) -> None:
@@ -392,11 +399,15 @@ class RobotAgent(mesa.Agent):
         survivor: Survivor = None
 
         for su in self.model.survivors:
-            if su.tile.x == self.tile.x and su.tile.y == self.tile.y:
+            if (
+                su.tile.x == self.tile.x
+                and su.tile.y == self.tile.y
+                and not su.is_rescued
+            ):
                 survivor = su
                 break
         if not survivor:
-            print("No survivor could be found.")
+            # print("No survivor could be found.")
             return None
 
         self.transported_survivor = survivor
@@ -435,9 +446,9 @@ class RobotAgent(mesa.Agent):
         # Move along the route to the save zone
         self.change_tile(route[-1])
         self.tiles_moved += len(route)
-        print(
-            f"Agent {self.unique_id} moved to save zone at ({target_save_zone.tile.x}, {target_save_zone.tile.y})"
-        )
+        # print(
+        #     f"Agent {self.unique_id} moved to save zone at ({target_save_zone.tile.x}, {target_save_zone.tile.y})"
+        # )
 
         return self.tile
 
@@ -447,10 +458,6 @@ class RobotAgent(mesa.Agent):
         # get nearest survivor, that is not Survivor.rescued
         for s in self.model.survivors:
             if s.is_rescued:
-                continue
-
-            # skip survivors on same tile
-            if s.tile.x == self.tile.x and s.tile.y == self.tile.y:
                 continue
 
             # find route to survivor
@@ -498,7 +505,8 @@ class EnvironmentModel(mesa.Model):
     survivors: List[Survivor]
     save_zones: List[SaveZone]
     # robot_agents: mesa.agent.AgentSet
-    data_collector: mesa.DataCollector
+    datacollector: mesa.DataCollector
+    running: bool
 
     def __init__(
         self,
@@ -520,9 +528,10 @@ class EnvironmentModel(mesa.Model):
         self._initialize_maze(width, height)
         self._create_save_zones(n_save_zones)
         self._create_survivors(n_survivors)
+        self.running = True
 
         # setup data collection
-        self.data_collector = mesa.DataCollector(
+        self.datacollector = mesa.DataCollector(
             model_reporters={
                 "Survivors": "survivors",
                 "SaveZones": "save_zones",
@@ -541,10 +550,10 @@ class EnvironmentModel(mesa.Model):
                 "TilesMoved": "tiles_moved",
                 "SurvivorsPickedUp": "survivors_picked_up",
                 "SurvivorsPlacedDown": "survivors_placed_down",
+                "StillRunning": "running",
             },
         )
 
-        # TODO: create agents
         # start tile for the agents is a save_zone tile
         start_tile: Tile = None
         if self.save_zones:
@@ -556,23 +565,24 @@ class EnvironmentModel(mesa.Model):
         RobotAgent.create_agents(self, n_robot_agents, start_tile)
 
         # end -> collect data
-        self.running = True
-        self.data_collector.collect(self)
+        self.datacollector.collect(self)
 
     # MESA
     def step(self) -> None:
+        # simulation stop
+        if self.all_survivors_rescued():
+            print("All survivors rescued. Stopping simulation.")
+            self.running = False
+            return
+
         # activate all agents
         self.agents.do("step")
-        self.data_collector.collect(self)
+        self.datacollector.collect(self)
 
     # MAZE GENERATION (Task 1, 3)
     def _initialize_maze(
         self, width: int, height: int
     ) -> Dict[Tuple[int, int], Dict[str, int]]:
-        # TODO: Replace with random dfs maze generation (= recursive backtracking)
-        # # m = pyamaze.maze(width, height)
-        # # m.CreateMaze(loopPercent=20, pattern="h")
-        # # self.maze = m.maze_map
         self.maze = {}
 
         # initialize maze with width*height tiles and all walls present
@@ -630,14 +640,14 @@ class EnvironmentModel(mesa.Model):
                 continue
 
             # if tile is already a save zone, skip it
-            for sz in self.save_zones:
-                if tile.x == sz.tile.x and tile.y == sz.tile.y:
-                    continue
+            if any(
+                tile.x == sz.tile.x and tile.y == sz.tile.y for sz in self.save_zones
+            ):
+                continue
 
             # if tile is already a survivor, skip it
-            for s in self.survivors:
-                if tile.x == s.tile.x and tile.y == s.tile.y:
-                    continue
+            if any(tile.x == s.tile.x and tile.y == s.tile.y for s in self.survivors):
+                continue
 
             possible_tiles.add(tile)
 
@@ -667,24 +677,15 @@ class EnvironmentModel(mesa.Model):
             if 1 not in tile.walls.values():
                 continue
 
-            # ignored now: tile cant be at the borders (top, right, bottom, left)
-            # if (
-            #     tile.x == 0
-            #     or tile.x == self.width - 1
-            #     or tile.y == 0
-            #     or tile.y == self.height - 1
-            # ):
-            #     continue
-
             # if tile is already a save zone, skip it
-            for sz in self.save_zones:
-                if tile.x == sz.tile.x and tile.y == sz.tile.y:
-                    continue
+            if any(
+                tile.x == sz.tile.x and tile.y == sz.tile.y for sz in self.save_zones
+            ):
+                continue
 
             # if tile is already a survivor, skip it
-            for s in self.survivors:
-                if tile.x == s.tile.x and tile.y == s.tile.y:
-                    continue
+            if any(tile.x == s.tile.x and tile.y == s.tile.y for s in self.survivors):
+                continue
 
             possible_tiles.add(tile)
 
@@ -694,10 +695,11 @@ class EnvironmentModel(mesa.Model):
                 print("Not enough space for survivors")
                 break
 
-            tile = random.choice(list(possible_tiles))
+            rdm_tile = random.choice(list(possible_tiles))
+            survivor = Survivor(rdm_tile)
 
-            self.survivors.append(Survivor(tile))
-            possible_tiles.remove(tile)
+            self.survivors.append(survivor)
+            possible_tiles.remove(rdm_tile)
 
         return self.survivors
 
@@ -712,13 +714,18 @@ class EnvironmentModel(mesa.Model):
             if s.is_rescued:
                 continue
 
+            for ra in self.agents_by_type[RobotAgent]:
+                # skip survivors that are already transported by an agent
+                if ra.transported_survivor == s:
+                    continue
+
             # find route from save zone to survivor
             route: List[Tile] = Tile.find_route(self.maze, save_zone.tile, s.tile)
             if not route:
-                print(
-                    f"No route found from save zone ({save_zone.tile.x}, {save_zone.tile.y}) "
-                    + f"to survivor ({s.tile.x}, {s.tile.y})"
-                )
+                # print(
+                #     f"No route found from save zone ({save_zone.tile.x}, {save_zone.tile.y}) "
+                #     + f"to survivor ({s.tile.x}, {s.tile.y})"
+                # )
                 continue
 
             pathlengths.append(len(route))
@@ -763,7 +770,6 @@ class EnvironmentModel(mesa.Model):
 
     # count of exits
     def get_exit_count(self) -> int:
-        # TODO: Check if this is correct after later data structure changes
         return len(self.save_zones)
 
     # symmetry
@@ -801,7 +807,7 @@ class EnvironmentModel(mesa.Model):
                 if tile.x == s.tile.x and tile.y == s.tile.y:
                     survivors += 1
             if survivors == 1:
-                label += "SURV\n"
+                label += str(survivors) + "SURV\n"
             elif survivors > 1:
                 label += str(survivors) + "SURVs\n"
 
