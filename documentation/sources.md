@@ -31,10 +31,14 @@ https://stackoverflow.com/questions/53734823/why-does-networkx-redraw-my-graph-d
 https://networkx.org/grave/latest/gallery/plot_grid.html
 
 Matplotlib:
+https://matplotlib.org/stable/users/index
 https://stackoverflow.com/questions/9012487/savefig-outputs-blank-image
 
 BrickWall:
 https://github.com/Jaco7Fourie/BrickWall/tree/master
 
 Seaborn:
-https://seaborn.pydata.org/examples/many_pairwise_correlations.html
+https://seaborn.pydata.org/tutorial.html
+
+Pandas:
+https://pandas.pydata.org/getting_started.html

@@ -2,7 +2,6 @@ from typing import Dict, List, Tuple, Set
 from abc import ABC, abstractmethod
 import mesa.agent
 import mesa.model
-import pyamaze
 import mesa
 import random
 from helper_functions import *
@@ -16,6 +15,7 @@ GRAPH_VISUALISATION_FILE = "./output/graph_visualisation.png"
 
 
 # alternative: classes for positions and objects in the maze
+# TODO: bereits eingebaut
 class Position(ABC):
     # abstract class for positions in the maze
     # e.g. the top left corner is (0, height -1), the bottom right corner is (width -1, 0)
@@ -38,6 +38,7 @@ class Tile(Position):
             walls = {"N": 1, "E": 1, "S": 1, "W": 1}
         self.walls = walls
 
+    # TODO: nicht mehr benötigt
     def get_tile_in_list_by_pos(pos_x: int, pos_y: int, tiles):
         # tiles: List[Tile]
         # get the tile in the list with the same x and y coordinates
@@ -46,6 +47,7 @@ class Tile(Position):
                 return tile
         return None
 
+    # TODO: nicht mehr benötigt (leicht anders: gibt alle zurück, ungefiltert)
     def get_neighbors(self, tiles):
         # get directly adjacent tiles in the directions N, E, S, W.
         # if a tile does not exist, dont add it to the list of neighbors
@@ -71,6 +73,7 @@ class Tile(Position):
 
         return neighbors
 
+    # TODO: bereits eingebaut
     def add_wall(self, neighbor) -> None:
         # add a wall between this tile and the neighbor tile
         if self.x == neighbor.x:
@@ -90,6 +93,7 @@ class Tile(Position):
         else:
             print("Tiles are at the same position or not adjacent, cannot add wall.")
 
+    # TODO: bereits eingebaut
     def remove_wall(self, neighbor) -> None:
         # remove a wall between this tile and the neighbor tile
         if self.x == neighbor.x:
@@ -107,6 +111,7 @@ class Tile(Position):
                 self.walls["W"] = 0
                 neighbor.walls["E"] = 0
 
+    # TODO: ecke: beide wände weg.
     def remove_edge_walls(self, maze_width: int, maze_height: int):
         # "N" edge
         if self.y == maze_height - 1:
@@ -126,6 +131,7 @@ class Tile(Position):
 
         return self
 
+    # TODO: bereits eingebaut: ob zwei tiles verbunden sind
     def check_tiles_connection(self, other) -> bool:
         # go through every orientation of the walls of the tiles
         # true, if connected, false if not connected
@@ -148,6 +154,7 @@ class Tile(Position):
                     return True
         return False
 
+    # TODO: bereits eingebaut. Dict nicht mehr benötigt
     def transform_tiles_to_dict(tiles: List) -> Dict[Tuple[int, int], Dict[str, int]]:
         # transform the list of tiles into a dictionary with the tile positions as keys and the walls as values
         maze_dict: Dict[Tuple[int, int], Dict[str, int]] = {}
@@ -155,6 +162,7 @@ class Tile(Position):
             maze_dict[(tile.x, tile.y)] = tile.walls
         return maze_dict
 
+    # TODO: bereits eingebaut.
     def transform_dict_to_tiles(
         maze_dict: Dict[Tuple[int, int], Dict[str, int]],
     ) -> List:
@@ -165,6 +173,7 @@ class Tile(Position):
             tiles.append(tile)
         return tiles
 
+    # TODO: bereits eingebaut.
     def transform_tiles_to_graph(tiles: List) -> nx.Graph:
         # transform the list of tiles into a graph
         # positions as nodes, walls with values 0 (no wall) as edges
@@ -188,6 +197,7 @@ class Tile(Position):
 
         return G
 
+    # TODO: -> helper_functions. Übergabeparam statt maze: G: nx.Graph
     def find_route(
         maze: Dict[Tuple[int, int], Dict[str, int]], start_tile, target_tile
     ) -> List:
@@ -295,8 +305,10 @@ class Tile(Position):
         return route
 
 
+# TODO: so belassen
 class Survivor:
     tile: Tile
+    is_rescued: bool
 
     def __init__(self, tile: Tile):
         self.tile = tile
@@ -313,6 +325,7 @@ class Survivor:
         return self.is_rescued
 
 
+# TODO: so belassen
 class SaveZone:
     tile: Tile
 
@@ -784,6 +797,21 @@ class EnvironmentModel(mesa.Model):
 
         return pathlengths
 
+    def get_pathlengths_savezone_to_savezones(self, save_zone: SaveZone) -> List[int]:
+        pathlengths: List[int] = []
+
+        for sz in self.save_zones:
+            if save_zone == sz:
+                continue
+
+            route: List[Tile] = Tile.find_route(self.maze, save_zone.tile, sz.tile)
+            if not route:
+                continue
+
+            pathlengths.append(len(route))
+
+        return pathlengths
+
     def get_max_pathlength(pathlengths: List[int]) -> int:
         return max(pathlengths) if pathlengths else 0
 
@@ -796,13 +824,12 @@ class EnvironmentModel(mesa.Model):
         return sum(pathlengths) / len(pathlengths)
 
     # Wall density
-    def get_mean_wall_density(self) -> int:
+    def get_mean_wall_density(self) -> float:
         G: nx.Graph = Tile.transform_tiles_to_graph(
             Tile.transform_dict_to_tiles(self.maze)
         )
 
         n_edges = G.size()
-        n_nodes = G.number_of_nodes()
         max_edges: int = 2 * self.width * self.height - self.width - self.height
 
         density = n_edges / max_edges if max_edges > 0 else 0
@@ -813,20 +840,16 @@ class EnvironmentModel(mesa.Model):
         return len(self.save_zones)
 
     # symmetry
-    def check_horizontal_symmetry(self) -> bool:
+    def check_horizontal_symmetry(self) -> float:
         # TODO: Implement check for horizontal symmetry
         # idea: cut maze in half, mirror one half and check if it is equal to the other half
         # --> left_half == mirror(right_half)
-        return False
+        return 0
 
-    def check_vertical_symmetry(self) -> bool:
+    def check_vertical_symmetry(self) -> float:
         # TODO: Implement check for vertical symmetry
         # just transpose the maze and check horizontal symmetry?
-        return False
-
-    # TODO: not needed?
-    # def check_point_symmetry(self) -> bool:
-    #     pass
+        return 0
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
 
@@ -842,32 +865,32 @@ class EnvironmentModel(mesa.Model):
             save_zones: int = 0
             agents: int = 0
 
-            # if tile is survivor, add a "SURV" to it.
+            # if tile is survivor, add a SURV to it.
             for s in self.survivors:
                 if tile.x == s.tile.x and tile.y == s.tile.y:
                     survivors += 1
             if survivors == 1:
-                label += str(survivors) + "SURV\n"
+                label += "SURV\n"
             elif survivors > 1:
-                label += str(survivors) + "SURVs\n"
+                label += str(survivors) + "xSURVs\n"
 
-            # if tile is save zone, add a "SAVEZONE" to it.
+            # if tile is save zone, add a EXIT to it.
             for sz in self.save_zones:
                 if tile.x == sz.tile.x and tile.y == sz.tile.y:
                     save_zones += 1
             if save_zones == 1:
-                label += "SAVE\n"
+                label += "EXIT\n"
             elif save_zones > 1:
-                label += str(save_zones) + "SAVEs\n"
+                label += str(save_zones) + "xEXITs\n"
 
-            # if tile is agent, add a "AGENT" to it.
+            # if tile is agent, add a AGENT to it.
             for ag in self.agents_by_type[RobotAgent]:
                 if tile.x == ag.tile.x and tile.y == ag.tile.y:
                     agents += 1
             if agents == 1:
                 label += "AGENT\n"
             elif agents > 1:
-                label += str(agents) + "AGENTs\n"
+                label += str(agents) + "xAGENTs\n"
 
             label += str(tile.x) + "," + str(tile.y)
             labeldict[tile] = label
@@ -891,155 +914,3 @@ class EnvironmentModel(mesa.Model):
         plt.savefig(GRAPH_VISUALISATION_FILE, dpi=300, bbox_inches="tight")
         plt.show()
         return None
-
-    def _save_maze_csv(self) -> str:
-        # save the maze to a csv file in the following format:
-        #   cell  ,E,W,N,S
-        # "(10, 1)",1,1,1,1
-        # "(10, 2)",1,1,0,1
-        # "(10, 3)",1,1,0,1 ...
-
-        # own structure --> transformed structure for pyamaze
-        # {(0, 0):  {'N': 1, 'E': 0, 'S': 1, 'W': 1},   (0, 1): {'N': 0, 'E': 0, 'S': 1, 'W': 1}, (0, 2): {'N': 1, 'E': 0, 'S': 0, 'W': 1}
-        # {(10, 1): {'N': 1, 'E': 0, 'S': 1, 'W': 1},   (9, 1): {'N': 0, 'E': 0, 'S': 1, 'W': 1}, (8, 1): {'N': 1, 'E': 0, 'S': 0, 'W': 1}
-        transformed_maze: Dict[Tuple[int, int], Dict[str, int]] = {}
-        for key, val in self.maze.items():
-            # transform the coordinates for visualization
-            transformed_key = transform_coord_for_visualization(
-                self.height, key[0], key[1]
-            )
-
-            # sort the walls in the correct order for pyamaze: E, W, N, S
-            transformed_val = {
-                "E": val["E"],
-                "W": val["W"],
-                "N": val["N"],
-                "S": val["S"],
-            }
-            transformed_maze[transformed_key] = transformed_val
-
-        # Transform the transformed maze:
-        # Sort the keys by: key[0] descending, key[1] ascending
-        transformed_maze = dict(
-            sorted(transformed_maze.items(), key=lambda item: (item[0][1], item[0][0]))
-        )
-
-        # code from pyamaze to simulate the same csv output as pyamaze
-        with open(CSV_VISUALISATION_FILE, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["  cell  ", "E", "W", "N", "S"])
-
-            for key, val in transformed_maze.items():
-                entry = [key]
-                for i in val.values():
-                    entry.append(i)
-                writer.writerow(entry)
-
-            f.seek(0, os.SEEK_END)
-            f.seek(f.tell() - 2, os.SEEK_SET)
-            f.truncate()
-
-        return CSV_VISUALISATION_FILE
-
-    def visualize_maze(self) -> None:
-        m = pyamaze.maze(
-            self.height,
-            self.width,
-        )
-
-        path = self._save_maze_csv()
-        m.CreateMaze(loadMaze=path)
-
-        # m.maze_map = deepcopy(transformed_maze)
-        # print(m.grid)  # [(1, 1), (2, 1), (3, 1), (4, 1), (5...
-        # m.theme = pyamaze.COLOR.dark
-        # m.rows = self.height
-        # m.cols = self.width
-        # m.path = {}
-        # m._LabWidth = 26
-        # m._goal = (0, 0)
-
-        # manually generate grid for pyamaze
-        # grid: List[Tuple[int, int]] = []
-        # for w in range(1, self.width + 1):
-        #     for h in range(1, self.height + 1):
-        #         grid.append((h, w))
-        # m.grid = grid
-        # m._grid = grid
-
-        # display survivors in the map
-        survivor_positions_adjusted = [
-            transform_coord_for_visualization(self.height, s.tile.x, s.tile.y)
-            for s in self.survivors
-        ]
-
-        for survivor_position_adj in survivor_positions_adjusted:
-            agent_survivor = pyamaze.agent(
-                m,
-                # filled=True,
-                color=pyamaze.COLOR.red,
-                footprints=False,
-                x=survivor_position_adj[0],
-                y=survivor_position_adj[1],
-                shape="square",
-            )
-
-        # display save zones in the map
-        save_zone_positions_adjusted = [
-            transform_coord_for_visualization(self.height, sz.tile.x, sz.tile.y)
-            for sz in self.save_zones
-        ]
-        for save_zone_position_adj in save_zone_positions_adjusted:
-            agent_save_zone = pyamaze.agent(
-                m,
-                # filled=True,
-                color=pyamaze.COLOR.green,
-                footprints=False,
-                x=save_zone_position_adj[0],
-                y=save_zone_position_adj[1],
-                shape="square",
-            )
-
-        m.run()
-
-    def save_metrics(self) -> None:
-        # basic metrics
-        width = self.width
-        height = self.height
-        n_survivors = len(self.survivors)
-        n_save_zones = len(self.save_zones)
-
-        print("Maze Metrics:")
-        print("Width: ", width)
-        print("Height: ", height)
-        print("Number of Survivors: ", n_survivors)
-        print("Number of Save Zones: ", n_save_zones)
-
-        # Pathlengths
-        pathlengths = self.get_pathlengths_savezones_to_survivors()
-        min_pathlength = EnvironmentModel.get_min_pathlength(pathlengths)
-        mean_pathlength = EnvironmentModel.get_mean_pathlength(pathlengths)
-        max_pathlength = EnvironmentModel.get_max_pathlength(pathlengths)
-
-        print("Min Pathlength: ", min_pathlength)
-        print("Mean Pathlength: ", mean_pathlength)
-        print("Max Pathlength: ", max_pathlength)
-
-        # Wall densities
-        mean_wall_density = self.get_mean_wall_density()
-        print("Mean Wall Density: ", mean_wall_density)
-
-        # Exit count
-        exit_count = self.get_exit_count()
-        print("Exit Count: ", exit_count)
-
-        # Symmetry
-        symmetry_horizontal = self.check_horizontal_symmetry()
-        symmetry_vertical = self.check_vertical_symmetry()
-
-        print("Horizontal Symmetry: ", symmetry_horizontal)
-        print("Vertical Symmetry: ", symmetry_vertical)
-
-        # agent...
-        # TODO: write to csv file, use pandas dataframe, ... to save the data?
-        # TODO: then visualize the data for n runs with matplotlib/seaborn
