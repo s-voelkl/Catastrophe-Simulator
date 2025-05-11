@@ -42,3 +42,4 @@ https://seaborn.pydata.org/tutorial.html
 
 Pandas:
 https://pandas.pydata.org/getting_started.html
+https://seaborn.pydata.org/archive/0.11/examples/many_pairwise_correlations.html
