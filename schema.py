@@ -832,8 +832,8 @@ class EnvironmentModel(mesa.Model):
         n_edges = G.size()
         max_edges: int = 2 * self.width * self.height - self.width - self.height
 
-        density = n_edges / max_edges if max_edges > 0 else 0
-        return density
+        wall_density = (max_edges - n_edges) / max_edges if max_edges > 0 else 0
+        return wall_density
 
     # count of exits
     def get_exit_count(self) -> int:
