@@ -1,0 +1,84 @@
+Here are some used LLM interactions that have to be included as sources.
+
+1.
+--------------
+Prompt:
+Erstelle mir eine Tabelle für eine txt-Datei zu den Python Bibliotheken Mesa und Agentpy. Mich interessiert, wie die Verwendung ist, was die Vorteile und Nachteile sind, ein Codebeispiel für ein Model und einen Agenten, GitHub Sterne, wissenschaftliche Nutzung und Dokumentation.
+
+--------------
+Antwort:
+Hier ist eine Tabelle, die die Python-Bibliotheken Mesa und AgentPy vergleicht:
+
+Mesa vs AgentPy
+
+Verwendung:
+Mesa: Agentenbasierte Modellierung, ideal für die Simulation komplexer Systeme
+AgentPy: Agentenbasierte Modellierung, integriert Modellentwurf und Datenanalyse
+
+Vorteile:
+Mesa:
+- Modularer Aufbau
+- Browserbasierte Visualisierung
+- Eingebaute Analysetools
+
+AgentPy:
+- Einfache Integration von Simulation und Analyse
+- Flexibel und erweiterbar
+
+Nachteile:
+Mesa:
+- Kann für Anfänger komplex sein
+- Abhängigkeiten müssen manuell installiert werden
+
+AgentPy:
+- Weniger verbreitet als Mesa
+- Dokumentation könnte umfangreicher sein
+
+Codebeispiel (Modell):
+Mesa:
+from mesa import Agent, Model
+from mesa.time import RandomActivation
+
+class MoneyModel(Model):
+    def __init__(self, N):
+        self.num_agents = N
+        self.schedule = RandomActivation(self)
+        for i in range(self.num_agents):
+            a = MoneyAgent(i, self)
+            self.schedule.add(a)
+    def step(self):
+        self.schedule.step()
+
+class MoneyAgent(Agent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+    def step(self):
+        pass
+
+AgentPy:
+import agentpy as ap
+
+class MoneyModel(ap.Model):
+    def setup(self):
+        self.agents = ap.AgentList(self, self.p.agents, MoneyAgent)
+        self.agents.randomize()
+    def step(self):
+        self.agents.step()
+
+class MoneyAgent(ap.Agent):
+    def setup(self):
+        pass
+    def step(self):
+        pass
+
+GitHub Sterne:
+Mesa: 2.9k
+AgentPy: 1.1k
+
+Wissenschaftliche Nutzung:
+Mesa: Häufig in wissenschaftlichen Arbeiten verwendet
+AgentPy: Ebenfalls in wissenschaftlichen Arbeiten verwendet
+
+Dokumentation:
+Mesa: Umfangreiche Dokumentation und Tutorials
+AgentPy: Gute Dokumentation, aber weniger umfangreich als Mesa
