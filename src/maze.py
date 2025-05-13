@@ -1,61 +1,10 @@
 import dataclasses
 import networkx
 import matplotlib.pyplot as plt
-from typing import Dict, List, Tuple, Iterator, Literal
-from enum import Enum, auto
-
-@dataclasses.dataclass
-class Position:
-    x: int
-    y: int
-
-    def __eq__(self, other) -> bool:
-        return self.x == other.x and self.y == other.y
-
-
-class Direction(Enum):
-    NORTH = auto()
-    EAST = auto()
-    SOUTH = auto()
-    WEST = auto()
-
-    @property
-    def dxdy(self):
-        return {
-            Direction.NORTH: (0, -1),
-            Direction.SOUTH: (0, 1),
-            Direction.EAST: (1, 0),
-            Direction.WEST: (-1, 0),
-        }[self]
-
-    @property
-    def opposite(self):
-        return {
-            Direction.NORTH: Direction.SOUTH,
-            Direction.SOUTH: Direction.NORTH,
-            Direction.EAST: Direction.WEST,
-            Direction.WEST: Direction.EAST,
-        }[self]
-
-
-@dataclasses.dataclass
-class Tile(Position):
-    north: int = dataclasses.field(default=1, init=True)
-    east: int = dataclasses.field(default=1, init=True)
-    south: int = dataclasses.field(default=1, init=True)
-    west: int = dataclasses.field(default=1, init=True)
-
-    def __hash__(self):
-        return hash((self.x, self.y))
-
-    def count_walls(self) -> int:
-        return self.north + self.east + self.south + self.west
-
-    def count_openings(self) -> int:
-        return 4 - self.count_walls()
-
-    def wall_densitiy(self) -> float:
-        return self.count_walls() / self.count_openings()
+import random
+from typing import Dict, List, Tuple, Iterator, Literal, Set, Any
+from base import Position, Direction, Tile
+from entity import Survivor
 
 
 @dataclasses.dataclass
@@ -67,13 +16,19 @@ class Maze:
     # x is col number [0, width-1]
     tile_grid: List[List[Tile]] | None = dataclasses.field(default=None, init=False)
     save_zones: List[Position] | None = dataclasses.field(default=None, init=False)
-    survivors: List[Position] | None = dataclasses.field(default=None, init=False)
+    survivors: List[Survivor] | None = dataclasses.field(default=None, init=False)
 
     def __post_init__(self):
         if self.tile_grid is None:
             self.tile_grid = [
                 [Tile(x=x, y=y) for x in range(self.width)] for y in range(self.height)
             ]
+
+        if self.save_zones is None:
+            self.save_zones = []
+
+        if self.survivors is None:
+            self.survivors = []
 
     # -------------------------------------------------------------------------
     # GETTER / SETTER
@@ -86,6 +41,12 @@ class Maze:
     def get_all_tiles(self) -> Iterator[Tile]:
         for row in self.tile_grid:
             yield from row
+
+    def get_survivor(self) -> Iterator[Survivor]:
+        yield from self.survivors or []
+
+    def get_save_zones(self) -> Iterator[Survivor]:
+        yield from self.save_zones or []
 
     def set_tile(self, tile: Tile) -> None:
         if 0 <= tile.y < self.height and 0 <= tile.x < self.width:
@@ -104,6 +65,15 @@ class Maze:
             neighbor = self.get_tile(nx, ny)
             setattr(neighbor, direction.opposite.name.lower(), wall)
 
+    def remove_wall(self, tile: Tile, neighbor: Tile) -> None:
+        dx = neighbor.x - tile.x
+        dy = neighbor.y - tile.y
+
+        for direction in Direction:
+            if direction.dxdy == (dx, dy):
+                self.set_wall(tile, direction, 0)
+                return  # done
+
     def get_connected_neighbors(self, tile: Tile) -> List[Tile]:
         neighbors = []
 
@@ -119,6 +89,7 @@ class Maze:
         return [tile for tile in neighbors if tile is not None]
 
     def get_all_neighbors(self, tile: Tile) -> List[Tile]:
+        # TODO: change into an Iterator similar to get_all_tiles()
         neighbors = []
 
         for direction in Direction:
@@ -130,6 +101,76 @@ class Maze:
                 neighbors.append(neighbor)
 
         return neighbors
+
+    # -------------------------------------------------------------------------
+    # GENERATE MAZE
+    # -------------------------------------------------------------------------
+    def generate_maze_with_random_dfs(self) -> None:
+        initial_tile = self.get_tile(x=0, y=0)
+        if not initial_tile:
+            raise ValueError("Initial tile not found in tiles list.")
+
+        frontier: List[Tile] = [initial_tile]
+        visited: Set[Tile] = {initial_tile}
+
+        while frontier:
+            # pop a cell as the current cell
+            tile: Tile = frontier.pop()
+
+            # if the cell has any neighbors which have not been visited...
+            neighbors = self.get_all_neighbors(tile)
+            unvisited_neighbors = [n for n in neighbors if n not in visited]
+            if unvisited_neighbors:
+                # push the current cell to the stack
+                frontier.append(tile)
+
+                # choose one of the unvisited neighbors at random (use vertical/horizontal preference here?)
+                neighbor = random.choice(unvisited_neighbors)
+
+                # and remove the wall between them
+                self.remove_wall(tile, neighbor)
+
+                # then mark the neighbor as visited and push it to the stack
+                visited.add(neighbor)
+                frontier.append(neighbor)
+
+    def generate_save_zones(self, n_save_zones: int) -> None:
+        possible_tiles = self.get_empty_tiles(only_border=True)
+
+        for _ in range(n_save_zones):
+            if not possible_tiles:
+                print("Not enough space for save zones")
+                break
+
+            tile = random.choice(list(possible_tiles))
+
+            if tile.y == self.height - 1:
+                self.set_wall(tile, Direction.SOUTH, 0)
+
+            if tile.x == self.width - 1:
+                self.set_wall(tile, Direction.EAST, 0)
+
+            if tile.y == 0:
+                self.set_wall(tile, Direction.NORTH, 0)
+
+            if tile.x == 0:
+                self.set_wall(tile, Direction.WEST, 0)
+
+            self.save_zones.append(Position(x=tile.x, y=tile.y))
+            possible_tiles.remove(tile)
+
+    def generate_survivors(self, n_survivors: int) -> None:
+        possible_tiles = self.get_empty_tiles()
+
+        for _ in range(n_survivors):
+            if not possible_tiles:
+                print("Not enough space for save zones")
+                break
+
+            tile = random.choice(list(possible_tiles))
+
+            self.survivors.append(Survivor(x=tile.x, y=tile.y))
+            possible_tiles.remove(tile)
 
     # -------------------------------------------------------------------------
     # METRICS
@@ -191,9 +232,112 @@ class Maze:
     # AUXILIARY
     # -------------------------------------------------------------------------
     def is_tile_empty(self, tile: Tile) -> bool:
-        return tile not in (self.save_zones or []) and tile not in (
-            self.survivors or []
-        )
+        tile_pos = Position(tile.x, tile.y)
+        return all(
+            tile_pos != Position(sz.x, sz.y) for sz in (self.save_zones or [])
+        ) and all(tile_pos != Position(s.x, s.y) for s in (self.survivors or []))
+
+    def get_empty_tiles(self, only_border: bool = False) -> Set[Tile]:
+        return {
+            tile
+            for tile in self.get_all_tiles()
+            if self.is_tile_empty(tile)
+            and (
+                not only_border
+                or tile.x == 0
+                or tile.x == self.width - 1
+                or tile.y == 0
+                or tile.y == self.height - 1
+            )
+        }
+
+    def find_route_with_A_star(
+        self, G: networkx.Graph, start_pos: Position, target_pos: Position
+    ) -> List:
+        # TODO: replace frontier with priority queue (https://docs.python.org/3/library/heapq.html)
+        def sort_dict_by_val_asc(frontier: Dict[Any, int]) -> List[Any]:
+            # sort the frontier by f(n) ascending
+            return sorted(frontier.items(), key=lambda item: item[1])
+
+        # get start & end node as node in the graph
+        start_node: Tile = None
+        for node in G.nodes:
+            if node.x == start_pos.x and node.y == start_pos.y:
+                start_node = node
+                break
+
+        end_node: Tile = None
+        for node in G.nodes:
+            if node.x == target_pos.x and node.y == target_pos.y:
+                end_node = node
+                break
+
+        if not start_node or not end_node or (start_node == end_node):
+            return []
+
+        route: List[Position] = []
+
+        # open list. Tile and the f(n) = g(n) + h(n).
+        # g(n): Cost so far
+        # h(n): heuristic - manhattan distance to the target_tile
+        # Tile -> ( f(n), g(n), h(n) )
+        h_start_node: int = start_pos.manhattan_distance(target_pos)
+        frontier: Dict[Position, Tuple[int, int, int]] = {
+            start_node: (h_start_node + 0, 0, h_start_node)
+        }
+        visited: Dict[Position, Tuple[int, int, int]] = dict()  # closed list
+        parent_pointers: Dict[Position, Position] = dict()  # child -> parent
+
+        while frontier:
+            # get node with the least f(n) value, add it to visited
+            node = sort_dict_by_val_asc(frontier)[0][0]
+            node_costs: Tuple[int, int, int] = frontier[node]
+            visited[node] = node_costs
+            frontier.pop(node)
+            # print(f"Visiting node ({node.x},{node.y}) with costs fgh{node_costs}")
+
+            # if goal reached
+            if node == end_node:
+                # reconstruct the path from the target tile to the start tile
+                while node in parent_pointers:
+                    route.append(node)
+                    node = parent_pointers[node]
+                route.reverse()
+
+                # returns the list from start to end, without the start tile
+                return route
+
+            # generate each neighbor of the node
+            for neighbor in G.neighbors(node):
+                # set parent of neighbor to node
+
+                # get f(neighbor)
+                g_neighbor: int = 1 + node_costs[1]  # g(n') = g(n) + 1
+                h_neighbor: int = neighbor.manhattan_distance(end_node)
+                f_neighbor: int = g_neighbor + h_neighbor
+
+                # skip worse/equal neighbor values in the frontier
+                if neighbor in frontier.keys() and f_neighbor >= frontier[neighbor][0]:
+                    continue
+
+                # skip worse/equal neighbor values in the visited
+                if neighbor in visited.keys() and f_neighbor >= visited[neighbor][0]:
+                    continue
+
+                if neighbor in frontier.keys():
+                    frontier.pop(neighbor)
+                if neighbor in visited.keys():
+                    visited.pop(neighbor)
+
+                frontier[neighbor] = (f_neighbor, g_neighbor, h_neighbor)
+                parent_pointers[neighbor] = node
+
+        # reconstructed path -> route
+        if not route:
+            print("No route found.")
+            return []
+
+        return route
 
     # -------------------------------------------------------------------------
     # VISUALISATION
@@ -201,20 +345,21 @@ class Maze:
     def get_tile_lable(
         self, tile: Tile, mode: Literal["coord", "symbol", "full"] = "coord"
     ) -> str:
-        coord = f" {tile.x},{tile.y} "
+        coord = f"{tile.x},{tile.y}"
         symbol = "     "
         text = ""
         if not self.is_tile_empty(tile):
-            if tile in self.save_zones:
+            tile_pos = Position(tile.x, tile.y)
+            if tile_pos in self.save_zones:
                 symbol = "  E  "
                 text += "EXIT\n"
-            if tile in self.survivors:
+            if tile_pos in self.survivors:
                 symbol = "  S  "
                 text += "SURV\n"
 
         match mode:
             case "coord":
-                return coord
+                return coord.center(5)
             case "symbol":
                 return symbol
             case "full":
@@ -268,7 +413,7 @@ class Maze:
             lines.append("E: Exit (Save Zone)")
         return "\n".join(lines)
 
-    def visualize_graph(self) -> None:
+    def visualize_graph(self, G: networkx.Graph) -> None:
         positioning = {}
         labeldict = {}
         for tile in self.get_all_tiles():
@@ -276,7 +421,7 @@ class Maze:
             positioning[tile] = (tile.x, self.height - tile.y - 1)
 
         networkx.draw(
-            G=self.to_networkx_graph(),
+            G=G,
             pos=positioning,
             with_labels=True,
             labels=labeldict,
@@ -292,15 +437,20 @@ class Maze:
     # TRANSFORMER
     # -------------------------------------------------------------------------
     def to_networkx_graph(self) -> networkx.Graph:
-        graph = networkx.Graph()
+        G = networkx.Graph()
 
         for tile in self.get_all_tiles():
-            graph.add_node(tile)
+            G.add_node(Position(x=tile.x, y=tile.y))
             for neighbor in self.get_connected_neighbors(tile):
-                if not graph.has_edge(tile, neighbor):
-                    graph.add_edge(tile, neighbor)
+                if not G.has_edge(
+                    Position(x=tile.x, y=tile.y), Position(x=neighbor.x, y=neighbor.y)
+                ):
+                    G.add_edge(
+                        Position(x=tile.x, y=tile.y),
+                        Position(x=neighbor.x, y=neighbor.y),
+                    )
 
-        return graph
+        return G
 
     def from_dict(self, maze_dict: Dict[Tuple[int, int], Dict[str, int]]) -> None:
         # transform the dictionary of tiles into a list of tiles
