@@ -5,17 +5,12 @@ import mesa.model
 import mesa
 import random
 from helper_functions import *
-import csv
-import os
 import networkx as nx
 import matplotlib.pyplot as plt
 
-CSV_VISUALISATION_FILE = "./output/maze_visualisation.csv"
 GRAPH_VISUALISATION_FILE = "./output/graph_visualisation.png"
 
 
-# alternative: classes for positions and objects in the maze
-# TODO: bereits eingebaut
 class Position(ABC):
     # abstract class for positions in the maze
     # e.g. the top left corner is (0, height -1), the bottom right corner is (width -1, 0)
@@ -38,7 +33,6 @@ class Tile(Position):
             walls = {"N": 1, "E": 1, "S": 1, "W": 1}
         self.walls = walls
 
-    # TODO: nicht mehr benötigt
     def get_tile_in_list_by_pos(pos_x: int, pos_y: int, tiles):
         # tiles: List[Tile]
         # get the tile in the list with the same x and y coordinates
@@ -47,7 +41,6 @@ class Tile(Position):
                 return tile
         return None
 
-    # TODO: nicht mehr benötigt (leicht anders: gibt alle zurück, ungefiltert)
     def get_neighbors(self, tiles):
         # get directly adjacent tiles in the directions N, E, S, W.
         # if a tile does not exist, dont add it to the list of neighbors
@@ -73,7 +66,6 @@ class Tile(Position):
 
         return neighbors
 
-    # TODO: bereits eingebaut
     def add_wall(self, neighbor) -> None:
         # add a wall between this tile and the neighbor tile
         if self.x == neighbor.x:
@@ -93,7 +85,6 @@ class Tile(Position):
         else:
             print("Tiles are at the same position or not adjacent, cannot add wall.")
 
-    # TODO: bereits eingebaut
     def remove_wall(self, neighbor) -> None:
         # remove a wall between this tile and the neighbor tile
         if self.x == neighbor.x:
@@ -111,7 +102,6 @@ class Tile(Position):
                 self.walls["W"] = 0
                 neighbor.walls["E"] = 0
 
-    # TODO: ecke: beide wände weg.
     def remove_edge_walls(self, maze_width: int, maze_height: int):
         # "N" edge
         if self.y == maze_height - 1:
@@ -131,7 +121,6 @@ class Tile(Position):
 
         return self
 
-    # TODO: bereits eingebaut: ob zwei tiles verbunden sind
     def check_tiles_connection(self, other) -> bool:
         # go through every orientation of the walls of the tiles
         # true, if connected, false if not connected
@@ -154,7 +143,6 @@ class Tile(Position):
                     return True
         return False
 
-    # TODO: bereits eingebaut. Dict nicht mehr benötigt
     def transform_tiles_to_dict(tiles: List) -> Dict[Tuple[int, int], Dict[str, int]]:
         # transform the list of tiles into a dictionary with the tile positions as keys and the walls as values
         maze_dict: Dict[Tuple[int, int], Dict[str, int]] = {}
@@ -162,7 +150,6 @@ class Tile(Position):
             maze_dict[(tile.x, tile.y)] = tile.walls
         return maze_dict
 
-    # TODO: bereits eingebaut.
     def transform_dict_to_tiles(
         maze_dict: Dict[Tuple[int, int], Dict[str, int]],
     ) -> List:
@@ -173,7 +160,6 @@ class Tile(Position):
             tiles.append(tile)
         return tiles
 
-    # TODO: bereits eingebaut.
     def transform_tiles_to_graph(tiles: List) -> nx.Graph:
         # transform the list of tiles into a graph
         # positions as nodes, walls with values 0 (no wall) as edges
@@ -197,7 +183,6 @@ class Tile(Position):
 
         return G
 
-    # TODO: -> helper_functions. Übergabeparam statt maze: G: nx.Graph
     def find_route(
         maze: Dict[Tuple[int, int], Dict[str, int]], start_tile, target_tile
     ) -> List:
@@ -305,7 +290,6 @@ class Tile(Position):
         return route
 
 
-# TODO: so belassen
 class Survivor:
     tile: Tile
     is_rescued: bool
@@ -325,7 +309,6 @@ class Survivor:
         return self.is_rescued
 
 
-# TODO: so belassen
 class SaveZone:
     tile: Tile
 
@@ -542,6 +525,8 @@ class EnvironmentModel(mesa.Model):
     total_survivors_picked_up: int
     total_survivors_placed_down: int
     initial_pathlengths: List[int]
+    north_south_symmetry: float
+    east_west_symmetry: float
 
     def __init__(
         self,
@@ -567,6 +552,9 @@ class EnvironmentModel(mesa.Model):
         self.total_tiles_moved = 0
         self.total_survivors_picked_up = 0
         self.total_survivors_placed_down = 0
+        self.north_south_symmetry, self.east_west_symmetry = (
+            self.calculate_axial_symmetry()
+        )
 
         # setup data collection
         self.datacollector = mesa.DataCollector(
@@ -578,8 +566,8 @@ class EnvironmentModel(mesa.Model):
                 "AllSurvivorsRescued": self.all_survivors_rescued,
                 "InitialPathlengths": "initial_pathlengths",
                 "MeanWallDensity": self.get_mean_wall_density,
-                "HorizontalSymmetry": self.check_horizontal_symmetry,
-                "VeticalSymmetry": self.check_vertical_symmetry,
+                "NorthSouthSymmetry": "north_south_symmetry",
+                "EastWestSymmetry": "east_west_symmetry",
                 "ExitCount": self.get_exit_count,
                 "TotalTilesMoved": "total_tiles_moved",
                 "TotalSurvivorsPickedUp": "total_survivors_picked_up",
@@ -841,16 +829,56 @@ class EnvironmentModel(mesa.Model):
         return len(self.save_zones)
 
     # symmetry
-    def check_horizontal_symmetry(self) -> float:
-        # TODO: Implement check for horizontal symmetry
-        # idea: cut maze in half, mirror one half and check if it is equal to the other half
-        # --> left_half == mirror(right_half)
-        return 0
+    def calculate_axial_symmetry(self) -> Tuple[float, float]:
+        tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
 
-    def check_vertical_symmetry(self) -> float:
-        # TODO: Implement check for vertical symmetry
-        # just transpose the maze and check horizontal symmetry?
-        return 0
+        north_south_score = 0.0
+
+        half_width = self.width // 2
+        for y in range(self.height):
+            for x in range(half_width):
+                tile_left = Tile.get_tile_in_list_by_pos(x, y, tiles)
+                tile_right = Tile.get_tile_in_list_by_pos(self.width - x - 1, y, tiles)
+
+                score = 0.0
+                if tile_left.walls["N"] == tile_right.walls["N"]:
+                    score += 0.25
+                if tile_left.walls["S"] == tile_right.walls["S"]:
+                    score += 0.25
+                if tile_left.walls["E"] == tile_right.walls["W"]:
+                    score += 0.25
+                if tile_left.walls["W"] == tile_right.walls["E"]:
+                    score += 0.25
+
+                north_south_score += score
+
+        north_south_symmetry = north_south_score / (half_width * self.height)
+
+        east_west_score = 0.0
+
+        half_height = self.height // 2
+        for y in range(half_height):
+            for x in range(self.width):
+                tile_top = Tile.get_tile_in_list_by_pos(x, y, tiles)
+                tile_bottom = Tile.get_tile_in_list_by_pos(
+                    x, self.height - y - 1, tiles
+                )
+
+                score = 0.0
+                if tile_top.walls["N"] == tile_bottom.walls["S"]:
+                    score += 0.25
+                if tile_top.walls["S"] == tile_bottom.walls["N"]:
+                    score += 0.25
+                if tile_top.walls["E"] == tile_bottom.walls["E"]:
+                    score += 0.25
+                if tile_top.walls["W"] == tile_bottom.walls["W"]:
+                    score += 0.25
+
+                east_west_score += score
+
+        east_west_symmetry = east_west_score / (self.width * half_height)
+
+        return north_south_symmetry, east_west_symmetry
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
 
