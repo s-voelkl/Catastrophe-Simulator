@@ -29,13 +29,12 @@ test_tile_grid = [
 
 
 def test_maze():
-
     m2 = Maze(height=4, width=4)
     print(m2.render_maze())
     m2.tile_grid = test_tile_grid
     print(m2.render_maze())
 
-    m3 = Maze(10,5)
+    m3 = Maze(10, 5)
     m3.generate_maze_random_dfs()
     print(m3.render_maze())
     m3.generate_save_zones(3)
@@ -45,7 +44,6 @@ def test_maze():
     print(m3.render_maze("symbol"))
 
     m3.visualize_graph()
-
 
 
 def main():

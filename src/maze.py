@@ -251,8 +251,9 @@ class Maze:
             )
         }
 
-    def find_route_with_A_star(self, G: networkx.Graph, start_pos: Position, target_pos: Position) -> List:
-
+    def find_route_with_A_star(
+        self, G: networkx.Graph, start_pos: Position, target_pos: Position
+    ) -> List:
         # TODO: replace frontier with priority queue (https://docs.python.org/3/library/heapq.html)
         def sort_dict_by_val_asc(frontier: Dict[Any, int]) -> List[Any]:
             # sort the frontier by f(n) ascending
@@ -441,8 +442,13 @@ class Maze:
         for tile in self.get_all_tiles():
             G.add_node(Position(x=tile.x, y=tile.y))
             for neighbor in self.get_connected_neighbors(tile):
-                if not G.has_edge(Position(x=tile.x, y=tile.y), Position(x=neighbor.x, y=neighbor.y)):
-                    G.add_edge(Position(x=tile.x, y=tile.y), Position(x=neighbor.x, y=neighbor.y))
+                if not G.has_edge(
+                    Position(x=tile.x, y=tile.y), Position(x=neighbor.x, y=neighbor.y)
+                ):
+                    G.add_edge(
+                        Position(x=tile.x, y=tile.y),
+                        Position(x=neighbor.x, y=neighbor.y),
+                    )
 
         return G
 
