@@ -4,16 +4,16 @@ on:
     branches:
       - main
 
-  jobs:
-    lint:
-      name: Run Linter
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/chechout@v4
-        - uses: actions/setup-python@v5
-          with:
-            python-version: '3.10'
-        - name: Install ruff
-          run: pip install ruff
-        - name: Run Ruff Linter
-          run: ruff check && ruff format --check
+jobs:
+  lint:
+    name: Run Linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/chechout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run Ruff Linter
+        run: ruff check && ruff format --check
