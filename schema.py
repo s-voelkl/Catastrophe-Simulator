@@ -1,12 +1,10 @@
 from typing import Dict, List, Tuple, Set
 from abc import ABC, abstractmethod
-import mesa.agent
-import mesa.model
+import matplotlib.pyplot as plt
 import mesa
 import random
-from helper_functions import *
 import networkx as nx
-import matplotlib.pyplot as plt
+from helper_functions import *
 
 GRAPH_VISUALISATION_FILE = "./output/graph_visualisation.png"
 
@@ -164,40 +162,40 @@ class Tile(Position):
         # transform the list of tiles into a graph
         # positions as nodes, walls with values 0 (no wall) as edges
 
-        G = nx.Graph()
+        g = nx.Graph()
 
         # add nodes
         for tile in tiles:
             tile: Tile = tile
-            if tile not in G.nodes:
-                G.add_node(tile)
+            if tile not in g.nodes:
+                g.add_node(tile)
 
         # add edges
         for tile in tiles:
             neighbors = tile.get_neighbors(tiles=tiles)
             for neighbor in neighbors:
-                if not G.has_edge(tile, neighbor):
+                if not g.has_edge(tile, neighbor):
                     if tile.check_tiles_connection(neighbor):
                         # add edge if the tiles are connected (no wall between them)
-                        G.add_edge(tile, neighbor)
+                        g.add_edge(tile, neighbor)
 
-        return G
+        return g
 
     def find_route(
         maze: Dict[Tuple[int, int], Dict[str, int]], start_tile, target_tile
     ) -> List:
         tiles: List[Tile] = Tile.transform_dict_to_tiles(maze)
-        G: nx.Graph = Tile.transform_tiles_to_graph(tiles)
+        g: nx.Graph = Tile.transform_tiles_to_graph(tiles)
 
         # get start & end node as node in the graph
         start_node: Tile = None
-        for node in G.nodes:
+        for node in g.nodes:
             if node.x == start_tile.x and node.y == start_tile.y:
                 start_node = node
                 break
 
         end_node: Tile = None
-        for node in G.nodes:
+        for node in g.nodes:
             if node.x == target_tile.x and node.y == target_tile.y:
                 end_node = node
                 break
@@ -250,7 +248,7 @@ class Tile(Position):
                 return route
 
             # generate each neighbor of the node
-            for neighbor in G.neighbors(node):
+            for neighbor in g.neighbors(node):
                 # set parent of neighbor to node
 
                 # get f(neighbor)
@@ -813,11 +811,11 @@ class EnvironmentModel(mesa.Model):
 
     # Wall density
     def get_mean_wall_density(self) -> float:
-        G: nx.Graph = Tile.transform_tiles_to_graph(
+        g: nx.Graph = Tile.transform_tiles_to_graph(
             Tile.transform_dict_to_tiles(self.maze)
         )
 
-        n_edges = G.size()
+        n_edges = g.size()
         max_edges: int = 2 * self.width * self.height - self.width - self.height
         n_walls = max_edges - n_edges
 
@@ -884,8 +882,7 @@ class EnvironmentModel(mesa.Model):
 
     def visualize_graph(self) -> None:
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
-
-        G: nx.Graph = Tile.transform_tiles_to_graph(tiles)
+        g: nx.Graph = Tile.transform_tiles_to_graph(tiles)
 
         labeldict = {}
         for tile in tiles:
@@ -930,7 +927,7 @@ class EnvironmentModel(mesa.Model):
             positioning[tile] = (tile.x, tile.y)
 
         nx.draw(
-            G,
+            g,
             pos=positioning,
             with_labels=True,
             labels=labeldict,
