@@ -557,6 +557,7 @@ class EnvironmentModel(mesa.Model):
         # setup data collection
         self.datacollector = mesa.DataCollector(
             model_reporters={
+                "Maze": "maze",
                 "Survivors": "survivors",
                 "SaveZones": "save_zones",
                 "MazeWidth": "width",
@@ -783,14 +784,18 @@ class EnvironmentModel(mesa.Model):
 
         return pathlengths
 
-    def get_pathlengths_savezone_to_savezones(self, save_zone: SaveZone) -> List[int]:
+    def get_pathlengths_savezone_to_savezones(
+        maze: Dict[Tuple[int, int], Dict[str, int]],
+        save_zone: SaveZone,
+        save_zones: List[SaveZone],
+    ) -> List[int]:
         pathlengths: List[int] = []
 
-        for sz in self.save_zones:
+        for sz in save_zones:
             if save_zone == sz:
                 continue
 
-            route: List[Tile] = Tile.find_route(self.maze, save_zone.tile, sz.tile)
+            route: List[Tile] = Tile.find_route(maze, save_zone.tile, sz.tile)
             if not route:
                 continue
 
