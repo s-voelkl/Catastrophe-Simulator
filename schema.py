@@ -307,7 +307,7 @@ class Survivor:
         return self.is_rescued
 
 
-class SaveZone:
+class SafeZone:
     tile: Tile
 
     def __init__(self, tile: Tile):
@@ -358,9 +358,9 @@ class RobotAgent(mesa.Agent):
                 )
                 return
 
-        # 2. place down survivor if existing and on save zone
+        # 2. place down survivor if existing and on safe zone
         if self.transported_survivor is not None:
-            for sz in self.model.save_zones:
+            for sz in self.model.safe_zones:
                 if sz.tile.x == self.tile.x and sz.tile.y == self.tile.y:
                     self.place_down_survivor()
                     print(
@@ -368,11 +368,11 @@ class RobotAgent(mesa.Agent):
                     )
                     return
 
-        # if transporting survivor: move to save zone
+        # if transporting survivor: move to safe zone
         if self.transported_survivor is not None:
-            self.move_to_save_zone()
+            self.move_to_safe_zone()
             print(
-                f"Agent {self.unique_id} transporting survivor. Moved to save zone. ({self.tile.x}, {self.tile.y})"
+                f"Agent {self.unique_id} transporting survivor. Moved to safe zone. ({self.tile.x}, {self.tile.y})"
             )
             return
 
@@ -412,40 +412,40 @@ class RobotAgent(mesa.Agent):
         self.survivors_picked_up += 1
         return Survivor
 
-    def move_to_save_zone(self) -> Tile:
-        possible_routes: Dict[SaveZone, List[Tile]] = {}
+    def move_to_safe_zone(self) -> Tile:
+        possible_routes: Dict[SafeZone, List[Tile]] = {}
 
-        # get nearest save zone
-        for sz in self.model.save_zones:
-            # skip save zones on same tile
+        # get nearest safe zone
+        for sz in self.model.safe_zones:
+            # skip safe zones on same tile
             if sz.tile.x == self.tile.x and sz.tile.y == self.tile.y:
                 continue
 
-            # find route to save zone
+            # find route to safe zone
             possible_routes[sz] = Tile.find_route(self.model.maze, self.tile, sz.tile)
 
         if not possible_routes:
-            print("No possible routes to save zones.")
+            print("No possible routes to safe zones.")
             return self.tile
 
-        # get fastest route to save_zone: sort dict by len(List[Tile]) ascending, take first element
+        # get fastest route to safe_zone: sort dict by len(List[Tile]) ascending, take first element
         sorted_routes = sorted(possible_routes.items(), key=lambda path: len(path[1]))
         # for route in sorted_routes:
         #     print(
-        #         f"Route to save zone ({route[0].tile.x}, {route[0].tile.y}) with length {len(route[1])}"
+        #         f"Route to safe zone ({route[0].tile.x}, {route[0].tile.y}) with length {len(route[1])}"
         #     )
 
-        target_save_zone, route = sorted_routes[0]
+        target_safe_zone, route = sorted_routes[0]
 
         if not route:
-            print("No route to a save zone possible.")
+            print("No route to a safe zone possible.")
             return self.tile
 
-        # Move along the route to the save zone
+        # Move along the route to the safe zone
         self.change_tile(route[-1])
         self.tiles_moved += len(route)
         # print(
-        #     f"Agent {self.unique_id} moved to save zone at ({target_save_zone.tile.x}, {target_save_zone.tile.y})"
+        #     f"Agent {self.unique_id} moved to safe zone at ({target_safe_zone.tile.x}, {target_safe_zone.tile.y})"
         # )
 
         return self.tile
@@ -515,7 +515,7 @@ class EnvironmentModel(mesa.Model):
     maze: Dict[Tuple[int, int], Dict[str, int]]
 
     survivors: List[Survivor]
-    save_zones: List[SaveZone]
+    safe_zones: List[SafeZone]
     # robot_agents: mesa.agent.AgentSet
     datacollector: mesa.DataCollector
     running: bool
@@ -531,7 +531,7 @@ class EnvironmentModel(mesa.Model):
         width: int,
         height: int,
         n_survivors: int,
-        n_save_zones: int,
+        n_safe_zones: int,
         n_robot_agents: int,
         seed=None,
     ):
@@ -541,10 +541,10 @@ class EnvironmentModel(mesa.Model):
         self.width = width
         self.height = height
         self.survivors = []
-        self.save_zones = []
+        self.safe_zones = []
         self.maze = {}
         self._initialize_maze(width, height)
-        self._create_save_zones(n_save_zones)
+        self._create_safe_zones(n_safe_zones)
         self._create_survivors(n_survivors)
         self.running = True
         self.total_tiles_moved = 0
@@ -559,7 +559,7 @@ class EnvironmentModel(mesa.Model):
             model_reporters={
                 "Maze": "maze",
                 "Survivors": "survivors",
-                "SaveZones": "save_zones",
+                "SafeZones": "safe_zones",
                 "MazeWidth": "width",
                 "MazeHeight": "height",
                 "AllSurvivorsRescued": self.all_survivors_rescued,
@@ -582,11 +582,11 @@ class EnvironmentModel(mesa.Model):
             },
         )
 
-        # start tile for the agents is a save_zone tile
+        # start tile for the agents is a safe_zone tile
         for i in range(n_robot_agents):
             start_tile: Tile = None
-            if self.save_zones:
-                start_tile = random.choice(self.save_zones).tile
+            if self.safe_zones:
+                start_tile = random.choice(self.safe_zones).tile
             else:
                 start_tile = Tile.get_tile_in_list_by_pos(
                     0, 0, Tile.transform_dict_to_tiles(self.maze)
@@ -594,7 +594,7 @@ class EnvironmentModel(mesa.Model):
             RobotAgent.create_agents(self, 1, start_tile)
 
         # end -> collect data
-        self.initial_pathlengths = self.get_pathlengths_savezones_to_survivors()
+        self.initial_pathlengths = self.get_pathlengths_safezones_to_survivors()
         self.datacollector.collect(self)
 
     # MESA
@@ -666,7 +666,7 @@ class EnvironmentModel(mesa.Model):
         self.maze = maze
         return maze
 
-    def _create_save_zones(self, n_save_zones: int) -> None:
+    def _create_safe_zones(self, n_safe_zones: int) -> None:
         # get all positions
         possible_tiles: Set[Tile] = set()
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
@@ -681,9 +681,9 @@ class EnvironmentModel(mesa.Model):
             ):
                 continue
 
-            # if tile is already a save zone, skip it
+            # if tile is already a safe zone, skip it
             if any(
-                tile.x == sz.tile.x and tile.y == sz.tile.y for sz in self.save_zones
+                tile.x == sz.tile.x and tile.y == sz.tile.y for sz in self.safe_zones
             ):
                 continue
 
@@ -694,9 +694,9 @@ class EnvironmentModel(mesa.Model):
             possible_tiles.add(tile)
 
         # choose a random tile for each survivor
-        for _ in range(n_save_zones):
+        for _ in range(n_safe_zones):
             if len(possible_tiles) == 0:
-                print("Not enough space for save positions")
+                print("Not enough space for safe positions")
                 break
 
             tile = random.choice(list(possible_tiles))
@@ -704,10 +704,10 @@ class EnvironmentModel(mesa.Model):
             # remove wall between the position and the edge (maze open there)
             tile.remove_edge_walls(self.width, self.height)
 
-            self.save_zones.append(SaveZone(tile))
+            self.safe_zones.append(SafeZone(tile))
             possible_tiles.remove(tile)
 
-        return self.save_zones
+        return self.safe_zones
 
     def _create_survivors(self, n_survivors: int) -> None:
         # get all positions
@@ -719,9 +719,9 @@ class EnvironmentModel(mesa.Model):
             if 1 not in tile.walls.values():
                 continue
 
-            # if tile is already a save zone, skip it
+            # if tile is already a safe zone, skip it
             if any(
-                tile.x == sz.tile.x and tile.y == sz.tile.y for sz in self.save_zones
+                tile.x == sz.tile.x and tile.y == sz.tile.y for sz in self.safe_zones
             ):
                 continue
 
@@ -749,7 +749,7 @@ class EnvironmentModel(mesa.Model):
         return all(survivor.is_rescued for survivor in self.survivors)
 
     # MAZE METRICS (Task 2)
-    def get_pathlengths_savezone_to_survivors(self, save_zone: SaveZone) -> List[int]:
+    def get_pathlengths_safezone_to_survivors(self, safe_zone: SafeZone) -> List[int]:
         pathlengths: List[int] = []
 
         for s in self.survivors:
@@ -761,11 +761,11 @@ class EnvironmentModel(mesa.Model):
                 if ra.transported_survivor == s:
                     continue
 
-            # find route from save zone to survivor
-            route: List[Tile] = Tile.find_route(self.maze, save_zone.tile, s.tile)
+            # find route from safe zone to survivor
+            route: List[Tile] = Tile.find_route(self.maze, safe_zone.tile, s.tile)
             if not route:
                 # print(
-                #     f"No route found from save zone ({save_zone.tile.x}, {save_zone.tile.y}) "
+                #     f"No route found from safe zone ({safe_zone.tile.x}, {safe_zone.tile.y}) "
                 #     + f"to survivor ({s.tile.x}, {s.tile.y})"
                 # )
                 continue
@@ -773,29 +773,29 @@ class EnvironmentModel(mesa.Model):
             pathlengths.append(len(route))
         return pathlengths
 
-    def get_pathlengths_savezones_to_survivors(self) -> List[int]:
+    def get_pathlengths_safezones_to_survivors(self) -> List[int]:
         pathlengths: List[int] = []
 
-        for sz in self.save_zones:
-            save_zone_pathlengths: List[int] = (
-                self.get_pathlengths_savezone_to_survivors(sz)
+        for sz in self.safe_zones:
+            safe_zone_pathlengths: List[int] = (
+                self.get_pathlengths_safezone_to_survivors(sz)
             )
-            pathlengths.extend(save_zone_pathlengths)
+            pathlengths.extend(safe_zone_pathlengths)
 
         return pathlengths
 
-    def get_pathlengths_savezone_to_savezones(
+    def get_pathlengths_safezone_to_safezones(
         maze: Dict[Tuple[int, int], Dict[str, int]],
-        save_zone: SaveZone,
-        save_zones: List[SaveZone],
+        safe_zone: SafeZone,
+        safe_zones: List[SafeZone],
     ) -> List[int]:
         pathlengths: List[int] = []
 
-        for sz in save_zones:
-            if save_zone == sz:
+        for sz in safe_zones:
+            if safe_zone == sz:
                 continue
 
-            route: List[Tile] = Tile.find_route(maze, save_zone.tile, sz.tile)
+            route: List[Tile] = Tile.find_route(maze, safe_zone.tile, sz.tile)
             if not route:
                 continue
 
@@ -829,7 +829,7 @@ class EnvironmentModel(mesa.Model):
 
     # count of exits
     def get_exit_count(self) -> int:
-        return len(self.save_zones)
+        return len(self.safe_zones)
 
     # symmetry
     def calculate_axial_symmetry(self) -> Tuple[float, float]:
@@ -893,7 +893,7 @@ class EnvironmentModel(mesa.Model):
         for tile in tiles:
             label: str = ""
             survivors: int = 0
-            save_zones: int = 0
+            safe_zones: int = 0
             agents: int = 0
 
             # if tile is survivor, add a SURV to it.
@@ -905,14 +905,14 @@ class EnvironmentModel(mesa.Model):
             elif survivors > 1:
                 label += str(survivors) + "xSURVs\n"
 
-            # if tile is save zone, add a EXIT to it.
-            for sz in self.save_zones:
+            # if tile is safe zone, add a EXIT to it.
+            for sz in self.safe_zones:
                 if tile.x == sz.tile.x and tile.y == sz.tile.y:
-                    save_zones += 1
-            if save_zones == 1:
+                    safe_zones += 1
+            if safe_zones == 1:
                 label += "EXIT\n"
-            elif save_zones > 1:
-                label += str(save_zones) + "xEXITs\n"
+            elif safe_zones > 1:
+                label += str(safe_zones) + "xEXITs\n"
 
             # if tile is agent, add a AGENT to it.
             for ag in self.agents_by_type[RobotAgent]:
