@@ -910,9 +910,9 @@ class EnvironmentModel(mesa.Model):
                 if tile.x == sz.tile.x and tile.y == sz.tile.y:
                     safe_zones += 1
             if safe_zones == 1:
-                label += "EXIT\n"
+                label += "SAFE\n"
             elif safe_zones > 1:
-                label += str(safe_zones) + "xEXITs\n"
+                label += str(safe_zones) + "xSAFEs\n"
 
             # if tile is agent, add a AGENT to it.
             for ag in self.agents_by_type[RobotAgent]:
