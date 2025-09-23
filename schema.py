@@ -885,7 +885,7 @@ class EnvironmentModel(mesa.Model):
 
     # MAZE VISUALIZATION & OUTPUT (Task 5)
 
-    def visualize_graph(self) -> None:
+    def visualize_graph(self, save_path: str = GRAPH_VISUALISATION_FILE) -> None:
         tiles: List[Tile] = Tile.transform_dict_to_tiles(self.maze)
         g: nx.Graph = Tile.transform_tiles_to_graph(tiles)
 
@@ -942,6 +942,6 @@ class EnvironmentModel(mesa.Model):
             font_color="black",
             edge_color="gray",
         )
-        plt.savefig(GRAPH_VISUALISATION_FILE, dpi=300, bbox_inches="tight")
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.show()
         return None
