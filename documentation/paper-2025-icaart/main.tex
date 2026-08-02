@@ -1,0 +1,459 @@
+\documentclass[a4paper,twoside]{article}
+
+\usepackage{epsfig}
+\usepackage{subcaption}
+\usepackage{calc}
+\usepackage{amssymb}
+\usepackage{amstext}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{multicol}
+\usepackage{pslatex}
+\usepackage{apalike}
+\usepackage{algorithm2e}
+\usepackage[bottom]{footmisc}
+\usepackage{hyperref}
+\usepackage{SCITEPRESS}     % Please add other packages that you may need BEFORE the SCITEPRESS.sty package.
+
+\begin{document}
+
+\title{Optimizing Disaster Response with Quadruped Robots in Maze-Like Environments through Agent-Based Simulations}
+
+% AUTHORS
+% \author{
+%     \authorname{Simon Völkl, Prof. Dr. phil. Tatyana Ivanovska}
+%     \affiliation{Department of Electrical Engineering, Media and Computer Science, Technical University of Applied Sciences Amberg-Weiden, Germany}
+%     \email{{s.voelkl2, t.ivanovska}@oth-aw.de}
+% }
+\author{Anonymized for Review.}
+
+\keywords{Disaster Response, Agent-Based Simulation (ABS), Quadruped Locomotion, Maze, A-Star, Rescue-Zone Placement, Fleet Coordination, Path Planning}
+
+\abstract{
+    Disaster response operations require rapid and safe access to survivors to maximize human survivability and minimize casualties.
+    We present an agent-based simulation (ABS) study employing quadruped robots navigating grid-like maze environments for catastrophe rescue operations.
+    A custom framework executed extensive batch runs using the A\* algorithm with Manhattan-distance heuristics for path planning, enabling comprehensive analysis of maze topology, survivor distribution, agent density, rescue-zone placement and other operational parameters affecting rescue efficiency.
+    Results indicate that widely distributed safe zones — even when approximated visually — and inclusion of isolated zones significantly reduce transport distances.
+    Conversely, deploying excessive agents without coordination introduces path interference, degrading overall performance. 
+    We further outline navigation, manipulation, and coordination requirements for multi-mobile robot systems (MMRS) in human-centered rescue scenarios. Additionally, we assess the operational feasibility of Boston Dynamics Spot as an illustrative platform.
+    These findings provide actionable guidelines for multi-agent system (MAS) deployments: prioritize distributed safe-zone placement and communication-aware strategies to shorten routes and accelerate evacuations, informing future real-world quadruped robot applications in disaster response.
+}
+
+\onecolumn \maketitle \normalsize \setcounter{footnote}{0} \vfill
+
+\section{\uppercase{Introduction}}
+\label{sec:introduction}
+
+Efficiently rescuing survivors remains a critical challenge in disaster response scenarios. In this context, robotic rescue systems are gaining increasing relevance. Robots offer several advantages over human responders: they can be deployed in hazardous environments, communicate effectively with one another, and are more expendable in high-risk operations.
+
+% TODO: Is the definition of MAS and MMRS correct?
+A multi-agent system (MAS) is described by Dorri et al.\ \cite{Dorri2018Multi} as a collaboration of multiple agents - simple or advanced entities that decide on and perform actions based on the environment and sensed parameters - that solves a complex task, like this catastrophe rescue operation.
+
+% Deployment of MAS
+While the deployment of MASs for disaster response is not yet feasible, as noted by Drew et al \cite{Drew2021Multi}, initiatives like RoboCup Rescue\ \cite{robocuprescue2025} are actively advancing the field. Through its Simulation Innovation Strategy, RoboCup Rescue\ \cite{Visser2015RoboCup} introduces increasingly complex multi-agent challenges, fostering strategic innovation and pushing the boundaries of autonomous coordination and decision-making in simulated disaster scenarios. 
+
+% Resource conflicts [+ scientific relevance]
+In a multi-mobile robot system (MMRS), a specific type of MAS where all agents are mobile robots\ \cite{yan2013survey}, resource conflicts frequently arise when multiple robots attempt to access the same physical space, manipulate shared objects, or use limited communication channels. 
+Our MAS simulation highlights the critical impact of such conflicts and provides practical guidelines for the deployment of quadruped robots operating in dynamic disaster environments.
+Addressing these conflicts requires effective coordination strategies, such as task and motion planning, to ensure orderly and efficient resource usage\ \cite{yan2013survey,Parker2016multiple}.
+Despite these advances, simulation-based and real-world implementations of MAS still face significant challenges, including learning, fault detection, localization and more, as emphasized by Dorri et al.\ \cite{Dorri2018Multi}.
+
+% Hardware Robots: Manipulation techniques [+ scientific relevance]
+Although manipulation techniques such as robotic arms, grippers, and valves have demonstrated effectiveness on quadruped platforms, Sheh et al.\ \cite{Sheh2016RoboCup} emphasize that these capabilities remain insufficient for human-centered rescue operations. In particular, the complex task of safely extricating victims from hazardous environments continues to pose a significant challenge for current robotic systems. To address the limitations of current robotic systems in those rescue operations, our work proposes a comprehensive experimental setup designed to evaluate the practical capabilities of quadruped robots in complex environments.
+
+% LLM usage not possible. 
+Despite the rapid emergence of agent-based technologies for disaster response — such as the Large Language Model (LLM) frameworks \textit{DisasterResponseGPT}, proposed by Goecks et al.\ \cite{goecks2023disasterresponsegpt}, and \textit{DecisionGPT}, introduced by Dolant et al.\ \cite{dolant2025agentic} — concerns about the risks associated with language-based agents in multi-agent systems (MASs), as outlined by Reid et al.\ \cite{reid2025risk}, continue to hinder their adoption in real-world scenarios. 
+
+% Navigation + A* [+ scientific relevance]
+Rahiman et al.\ \cite{gul2019comprehensive} have previously examined a range of navigation techniques for both static and dynamic environments, with the potential for implementation in real-time navigation of mobile robots. It has been posited that the search algorithm A star is a suitable global navigation method for pathfinding. The algorithm was first proposed by Hart et al.\ \cite{hart1968formal} and achieved better performances than the before used Dijkstra's algorithm\ \cite{Dijkstra1959Note} due to the usage of heuristics for search guidance. There are also several techniques described by Patel\ \cite{Patel2025Variants} and Cui et al.\ \cite{cui2011based} for optimizing the A Star algorithm. Our contribution explores the use of heuristic functions — specifically Manhattan and Euclidean distances — as intuitive visual approximations for spatial measurements within disaster zones, thereby informing tactical decision-making in the placement of rescue zones and route planning.
+
+% Boston Dynamics Spot in confined environments [+ scientific relevance]
+Koval et al.\ \cite{koval2022navigation} presented an evaluation of autonomous navigation using a Boston Dynamics Spot robot and multiple map and localization methods as part of ongoing research on navigation in GPS-denied environments, such as rescue missions. Our research complements this by deriving specific requirements for quadruped robots in real-world rescue scenarios through simulation-based analysis, and by evaluating how the Boston Dynamics Spot robot meets these requirements—highlighting both its potential and current limitations.
+
+% [+ scientific relevance]
+Our work underscores the importance of conducting detailed simulation-based analyses to enhance rescue operations in disaster scenarios. By systematically evaluating data collected from environments modeled using agent-based simulation (ABS), as described by Siebers et al.\ \cite{siebers2008introduction}, we derive actionable insights that inform the strategic placement and optimal quantity of rescue zones. Furthermore, the analysis reveals causal relationships between key operational metrics — such as travel distance of agents, maze structure, and zone accessibility. These findings contribute to the development of evidence-based guidelines aimed at minimizing traversal paths and maximizing human survivability during rescue missions.
+
+% Paper objective
+This work aims to systematically explore the potential applications of robotic rescue systems through simulation-based analyses conducted in labyrinthine environments. A series of mazes was generated algorithmically, and their structural characteristics were evaluated. These analyses informed conclusions regarding the optimal deployment strategies for one or multiple rescue robots.
+
+% Outline
+The article is structured as follows.
+In Section~\ref{sec:simulation_implementation}, we introduce the overall implementation of the simulation, while Section~\ref{sec:data_analysis} describes the results of the data analysis and interpretations of the simulation batch runs.
+A possible real-world implementation with robot agents is discussed in Section~\ref{sec:real_world_example}, while also highlighting possible restrictions.
+Finally, Section~\ref{sec:conclusion} presents a summary of the article, and Section~\ref{sec:future_work} outlines prospects for future research.
+
+\section{\uppercase{Simulation Implementation}}
+\label{sec:simulation_implementation}
+
+The iterative approach of random DFS, as proposed by Korf, was selected as the algorithm to generate the maze, as the structure of the generated maze was conducive to simulation\ \cite{KORF198597}.
+For instance, it corresponded to debris in disaster rescue operations.
+
+The rescue zones, also called safe zones (SAFE) of the maze, were placed randomly at the edges.
+These so called \textit{safe zones} function as secure environments where survivors can receive necessary care and support.
+The survivors (SURV) are randomly placed within the maze, with the constraint that they must not occupy any of the designated safe zone positions. Their locations are known to the agents from the beginning of the simulation, eliminating the need for survivor search and detection. Consequently, the simulation can omit considerations of the agents’ sensor configurations as well as the survivors’ locations and quantities, which substantially reduces the system’s complexity and thereby significantly reducing the overall simulation complexity by not needing a search system, as mentioned by Gelenbe et al.\ \cite{GELENBE2012Large}.
+
+One or more robot agents (AGENT) are initially deployed at randomly selected safe zones to commence the rescue operation.
+A small 8x8 example of the maze with all mentioned entities can be seen in \autoref{fig:maze_map_visualisation}. 
+The tiles are highlighted by their coordinates, while the lines between them show the possible paths. 
+The movement between two neighboring cells is referred to as the distance moved, which represents the cost or effort required to traverse from one tile to another.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{../images/graph_visualisation.png}
+    \caption{Visualization of the 8x8 maze map. Survivors (SURV) have to be transported by the robot agent (AGENT) to the rescue zones (SAFE).}
+    \label{fig:maze_map_visualisation}
+\end{figure}
+
+From the starting point off, the robot agent can perform one of the following actions at each simulation step:
+
+\begin{itemize}
+    \item move to the nearest survivor if no other robot moved there
+    \item pick up survivor
+    \item move to the nearest safe zone
+    \item drop off survivor
+\end{itemize}
+
+The action \textit{pick up survivor} is indicative of the agent's successful identification of a survivor, thereby ensuring that the agent is not already carrying one.
+Conversely, the term \textit{drop off survivor} signifies that the agent has a survivor and is in a safe zone.
+In the process of picking up and dropping down survivors, only those who have not yet been rescued to a zone are considered.
+
+In the context of movement, the A-Star algorithm is employed for pathfinding, with the NetworkX library serving as the underlying framework\ \cite{hagberg2008exploring}.
+This algorithm takes into account the previous path costs $g(n)$ and the heuristic function $h(n)$.
+The Manhattan distance is utilized as the heuristic, as it fits the best for this type of grid and movement in only four directions\ \cite{Patel2025Heuristics}.
+Due to the fact that movement in the maze or grid is constrained to horizontal and vertical steps,
+the Manhattan distance provides a more realistic and frequently more accurate estimation of the actual path length (for non-diagonal movements), which is an important criterion for the A-star algorithm.
+In each simulation step, the robots act sequentially and execute their action. 
+
+The objective of the simulation is to facilitate the movement of all survivors to the designated safe zones in a minimum
+number of steps and moved fields by the quadruped robot, thereby ensuring their access to necessary care.
+
+The implementation of the algorithm and batch run was executed in Python, leveraging the Mesa library\ \cite{Hoeven2025mesa}.
+In addition, modules such as Pandas\ \cite{thepandas2025pandas,mckinney-proc-scipy-2010}, Numpy\ \cite{harris2020array}, and Seaborn\ \cite{Waskom2021seaborn} were utilized for the evaluation process.
+% The simulation was executed a total of 58,800 times with a range of parameters varied as shown in \autoref{tab:simulation_parameters}. 
+The process of varying the parameters was conducted exhaustively, encompassing all possible combinations of the values listed in \autoref{tab:simulation_parameters}. This factorial design ensured a comprehensive exploration of the parameter space, enabling robust statistical evaluation across a total of 58,800 simulation runs.
+
+The full source code is not available, as anonymized for review.
+
+% The full source code is available at \url{https://github.com/s-voelkl/Catastrophe-Simulator}.
+
+\begin{table*}[!htb]
+    \caption{Simulation parameters and their respective values.}\label{tab:simulation_parameters}\centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Parameter} & \textbf{Description} & \textbf{Values} \\ \hline
+        Width    & Width of the maze         & 8, 10, \ldots, 20 \\ \hline
+        Height   & Height of the maze        & 8, 10, \ldots, 20 \\ \hline
+        Survivors & Number of survivors       & 1, 2, \ldots, 10 \\ \hline
+        Safe zones & Number of rescue zones    & 1, 2, \ldots, 10 \\ \hline
+        Robots   & Number of search robots   & 1, 2, \ldots, 6  \\ \hline
+    \end{tabular}
+\end{table*}
+
+
+\section{\uppercase{Simulation Results and Data Analysis}}
+\label{sec:data_analysis}
+Here, we present a comprehensive evaluation of the results derived from the custom-built catastrophe rescue simulation, which was executed through extensive batch runs. The analysis focuses on identifying key performance indicators and correlations that influence the efficiency of quadruped robot operations in maze-like environments. It includes statistical assessments of simulation steps, path lengths, and total distances traveled, as well as the impact of varying parameters such as maze dimensions, survivor, rescue zone and agent counts. Furthermore, the chapter explores the optimization of safe zone placement and its implications for real-world rescue scenarios. 
+
+Visualizations throughout this chapter employ Seaborn’s default 95\% confidence interval error bands, constructed from bootstrap distributions to reflect the uncertainty inherent in the sampled data\ \cite{Waskom2021seaborn}.
+
+\subsection{Correlation Heatmap}
+\label{subsec:correlation_heatmap}
+
+The correlation heat map, when analyzed with the Pearson coefficient\ \cite{KIRCH2008Pearson}, reveals discernible patterns, as shown below in \autoref{fig:correlated_heatmap}.
+
+\begin{figure*}[!htb]
+    \centering
+    \includegraphics[width=14cm]{../images/correlation_heatmap.png}
+    \caption{Correlation heatmap for the most interesting features of the agent-based simulation.}
+    \label{fig:correlated_heatmap}
+\end{figure*}
+ 
+As displayed, the number of simulation steps is not influenced by the maze’s height, width, or the number of designated safe zones. 
+Instead, it is solely determined by the number of survivors to be rescued and the number of robots deployed, as the robots are not constrained by a maximum movement range per simulation step. 
+If the robots’ movement range were limited in each step, the correlation heatmap would likely reveal signals indicative of causal relationships through observable correlations.
+
+\subsection{Influences on Path Lengths}
+\label{subsec:path_lenghts}
+
+The iterative random DFS method tends to create dead-ends in a maze on a frequent basis. A dead-end is a cell in the maze that connects to only on other cell, meaning it can be accessed from just a single direction and serves as a local endpoint.
+
+\textit{Perfect mazes}, characterized by two exits (one at the start and one at the finish) and absence of dead-ends, exhibit a maximum path length between two points that is equivalent to the total number of tiles in the maze.
+This is due to the fact that there is only one path from the entrance (point 1) to the exit (point 2), as no other paths lead away as dead-ends or loops.
+
+In general, dead-ends result in a more complex maze, yet they reduce the effective path length in comparison to a perfect maze - with only one passage - for paths between two arbitrary points. This is why, a "perfect maze with no intersection has a huge solution length, but is boring and not fun to solve, because the solution is its unique path", as mentioned by Bellot et al.\ \cite{bellot2021generate}. Buck even proposed the number of dead-ends as a new metric for maze generators\ \cite{buck2015mazes}.
+
+The described phenomenon of sinking path lengths in more complex mazes occurs because certain spaces that could be incorporated into the single, extensive passageway between the entrance and exit are instead utilized as dead-ends, which are mostly not relevant for the pathfinding. As a result, only the dead-ends at the start or end of the solution path, if present, are relevant, while all other dead-ends can be disregarded since the shortest path will never traverse them.
+
+Consequently, the path length per maze area should decrease slightly as the maze area increases.
+When considering the path between two points, like start and end position, the dead-ends in between can be ignored for the path length; as a result, the overall maximum and average path lengths decrease, though obviously not in a linear fashion, as illustrated in \autoref{fig:pathlengths_per_area}.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/pathlengths_per_area.png}
+    \caption{Minimum, mean, and maximum path lengths per tile (per unit area) decrease as maze area ($\text{width} \times \text{height}$) increases.}
+    \label{fig:pathlengths_per_area}
+\end{figure}
+
+Additionally, it has been observed that the minimum path lengths between safe zones and survivors decrease as the number of safe zones increases.
+This phenomenon can be attributed to the increased number of possibilities for shorter and thereby more optimal paths, as illustrated in \autoref{fig:pathlengths_per_safezone_count}. 
+At the same time, the maximum path lengths increase due to a higher likelihood of encountering the longest and least optimal paths.
+However,the robot's operational efficacy is enhanced by the presence of a greater number of safe zones in the context of disaster rescue missions.
+This augmentation is attributed to the increased availability of shorter, optimal paths that can be used.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/safezones_maxpathlengths_grouped_survivors.png}
+    \caption{Divergence of minimum and maximum path lengths with an increasing number of safe zones.}
+    \label{fig:pathlengths_per_safezone_count}
+\end{figure}
+
+
+\subsection{Analysis of the Total Distance Moved}
+\label{subsec:total_distance_travled}
+
+As indicated by the correlation matrix, the total distance traversed by the quadruped robots evidently increases with the height and width of the maze, as the distance from the safe zone to the survivor generally becomes greater.
+While the influence of the distance reduction due to the dead ends on the distance is discernible, it is generally negligible when compared to the effect of the increasing area.
+
+The total distance traveled by the robots increases in proportion to the number of survivors, as demonstrated in \autoref{fig:tilesmoved_per_survivor_count}.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/tiles_moved_per_survivor.png}
+    \caption{The distance traveled increases roughly linearly with the number of survivors, with a slight flattening of the curve from four survivors onward.}
+    \label{fig:tilesmoved_per_survivor_count}
+\end{figure}
+
+As the number of survivors increases, the minimal decrease in the graph's slope becomes slightly perceptible.
+This reduction in the number of survivors is due to the decreasing minimum path lengths between the robot search dogs, which originate from the safe zones, and the survivors.
+As the number of possible paths increases, so do the direct shortest paths for the search (see \autoref{fig:tilesmoved_per_survivor_per_survivor_count}).
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/tiles_moved_per_survivor_on_survivor.png}
+    \caption{Total tiles moved per survivor decreases with a higher number of survivors, due to shorter and more direct paths from robot agents to survivors.}
+    \label{fig:tilesmoved_per_survivor_per_survivor_count}
+\end{figure}
+
+% It has been demonstrated that an increase in the number of safe zones is accompanied by a corresponding reduction in the distance traversed by robot search dogs, as it can be seen in the \autoref{fig:tilesmoved_per_survivor_per_survivor_count_grouped_safezone_count}.
+% The implementation of additional safe zones has been demonstrated to result in a substantial decrease in the distance traversed.
+% This reduction can offer a notable advantage in real-world scenarios.
+
+Results from the ABS indicate that increasing the number of designated safe zones leads to a measurable reduction in the distance traveled by robot agents. This trend is clearly illustrated in \autoref{fig:tilesmoved_per_survivor_per_survivor_count_grouped_safezone_count}, where the average traversal distance decreases significantly as the number of safe zones increases. The integration of additional safe zones thus contributes to a significant optimization of search paths, which may offer substantial operational advantages in real-world deployment scenarios.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/tiles_moved_per_survivor_on_safezones.png}
+    \caption{Total distance traversed per survivor, grouped by safe zone count. The results reveal a clear inverse relationship between the number of safe zones and the distance moved by robot agents, indicating significantly enhanced search efficiency with an increased number of safe zones.}
+    \label{fig:tilesmoved_per_survivor_per_survivor_count_grouped_safezone_count}
+\end{figure}
+
+Conversely, an increase in the number of robot search dogs results in a slight decrease in the distance traveled (see \autoref{fig:tilesmoved_per_survivor_per_survivor_count_grouped_robot_count}).
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/tiles_moved_per_survivor_grouped_robots.png}
+    \caption{Total distance traversed per survivor, grouped by robot count. A slight increase in distance is observed with more agents, likely due to path interference caused by limited coordination.}
+    \label{fig:tilesmoved_per_survivor_per_survivor_count_grouped_robot_count}
+\end{figure}
+
+This phenomenon can be attributed to the interference between search robots, which results in the disruption of each other's optimal paths to survivors. Even though, the agents have a common goal of rescuing the all survivors in a minimum of time, they might act competitively instead of cooperatively, as the process of finding the next survivor completely ignores the positions and shortest or best paths to survivors of other agents\ \cite{russell2002artificial}. This problem has already been discussed by Yan et al.\ \cite{yan2013survey} as a resource conflict in the case of manipulation of the same object - the survivors entities being the object in the simulation here. Introducing a global knowledge-base as a basic communication interface would enhance cooperative behavior, partly or completely reducing the negative impact of the lack of missing agent-given information.
+
+In a real-world implementation, it is therefore essential to prioritize effective communication and coordination between the robots to minimize search time and resource conflicts.
+Consequently, the presence of robots has been observed to exert a negative influence on path lengths, resulting in a substantial augmentation of the original distances traversed. 
+
+The following recommendations for action in real-world disaster rescue can be derived from the above analyses:
+To mitigate these issues, it is imperative to establish a sufficient number of rescue zones at first.
+In order to prevent resource conflicts of manipulations during the process of rescuing survivors, it is essential to ensure that there is adequate communication and coordination within the rescue team.
+Furthermore, it is essential that different groups of agents of the MMRS operate without interfering each other.
+
+\subsection{Process-Step-Analysis}
+\label{subsec:process_step_analysis}
+
+Naturally, the number of simulation steps decreases as the number of robots increases, since multiple robots can rescue survivors simultaneously.
+In this context, the number of simulation steps is approximately halved when the number of robots is doubled—provided that the number of survivors is sufficiently large. 
+This effect is clearly visible in \autoref{fig:simsteps_per_robot}, particularly in the transition from one to two robots.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/simulationsteps_per_agent.png}
+    \caption{Simulation steps drop with increasing robot count, particularly from one to two agents. The effect plateaus at four steps when robots exceed survivors, reflecting the minimum required actions per rescue.}
+    \label{fig:simsteps_per_robot}
+\end{figure}
+
+When the number of robots is very high — or even exceeds the number of survivors — the number of simulation steps approaches a value of four. 
+This results from the sequence of the robots’ minimum four required actions. 
+In the extreme case, a single survivor is rescued by exactly one robot, which requires precisely four steps to complete the rescue.
+In real-world rescue scenarios, process steps should therefore be optimized as much as possible to accelerate the rescue of survivors. 
+The number of rescue personnel is also a critical factor.
+
+\subsection{Optimization of Safe Zone Placement}
+\label{subsec:safe_zone_placement}
+
+A thorough examination of the simulations revealed that isolated safe zones frequently contain a substantial number of survivors.
+Isolated safe zones are defined as those that have a high or the highest path length to all other safe zones.
+According to this definition, there must always be one safe zone that is most isolated from all other safe zones in the same maze.
+The analyses thus compared the minimum path length of each safe zone to the other safe zones in each simulation, including the number of survivors ultimately stationed in the zone.
+
+The computation of the numerous path lengths required substantial processing resources, with each safe zone contributing a single data point. Due to the high computational cost, a random subset of the original dataset was selected for analysis, yielding approximately 56,000 data points — still sufficient to support robust data analyses.
+This data contained information regarding the maze, distance estimates and path lengths to other safe zones, the number of survivors in the field, and general simulation data.
+A correlation heatmap for the Pearson correlations can be found in \autoref{fig:correlation_heatmap_safezone_optimization}.
+
+\begin{figure*}[!htb]
+    \centering
+    \includegraphics[width=14cm]{../images/safezonedata_corr_heatmap.png}
+    \caption{Correlation Heatmap for the most important features of the safe zone optimization.}
+    \label{fig:correlation_heatmap_safezone_optimization}
+\end{figure*}
+
+\autoref{tab:correlation_metrics} offers an additional representation of the most relevant values from the correlation matrix.
+It presents the linear correlations between the number of survivors stationed on the safe zone and each respective metric of the minimal distance to other save zones using Pearson’s $r$, as well as the rank-based correlations using Kendall’s $\tau$ and Spearman’s $\rho$.
+
+Given the linear nature of the relationship, the Pearson coefficient should exhibit superior accuracy in comparison to the Spearman's rank-based coefficient rho and Kendall's tau\ \cite{hauke2011comparison}.
+However, if the rank-based coefficients were to be utilized for comparison, no significant difference should be observed between them\ \cite{puth2015effective}.
+
+\begin{table*}[!htb]
+    \caption{Correlation coefficients between survivor count per save zone and distance metrics}\label{tab:correlation_metrics}\centering
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{Metric} & \textbf{Pearson r} & \textbf{Kendall tau} & \textbf{Spearman rho} \\ \hline
+        Euclidean Distance  & 0.19 & 0.17 & 0.21 \\ \hline
+        Manhattan Distance  & 0.22 & 0.19 & 0.23 \\ \hline
+        Minimum Path Length & 0.21 & 0.20 & 0.25 \\ \hline
+    \end{tabular}
+\end{table*}
+
+The correlation between the number of survivors stationed in the safe zone and the minimum path length to other safe zones is clearly evident, as seen in \autoref{fig:survivor_count_per_safezone_isolation}. Due to the limited data availability at extreme values, the figure was truncated at the 97.5th percentile of minimum path lengths to other safe zones, mitigating distortions caused by high variance in sparsely populated regions.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/isolated_safezone_min_pathlength.png}
+    \caption{Safe zones with higher minimum path lengths to others — indicating greater isolation — consistently host more survivors, suggesting their frequent inclusion in optimal evacuation paths.}
+    \label{fig:survivor_count_per_safezone_isolation}
+\end{figure}
+
+The hypothesis that up to one additional survivor is located in isolated safe zones is confirmed by the data.
+It is noteworthy that the median minimum path length exhibited a high deviation of 6.00, the average registered 12.76, and the standard deviation was particularly elevated at 18.55, as illustrated in \autoref{tab:summary_statistics}.
+
+\begin{table*}[!htb]
+    \caption{A Summary of the statistics for distance-based metrics.}\label{tab:summary_statistics}\centering
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{Metric} & \textbf{Median} & \textbf{Mean} & \textbf{Standard Deviation} \\ \hline
+        Euclidean Distance  & 3.00 & 3.90  & 3.34  \\ \hline
+        Manhattan Distance  & 3.00 & 4.38  & 4.10  \\ \hline
+        Minimum Path Length & 6.00 & 12.76 & 18.55 \\ \hline
+    \end{tabular}
+\end{table*}
+
+If a safe zone is placed at the greatest possible distance from other safe zones, it tends to accommodate more survivors on average by the end of the simulation than those that are not placed in isolation. 
+More rescued survivors in a single safe zone indicate that this zone was more frequently selected as part of the most efficient path.
+Consequently, the total distance moved by the agents in the simulation is reduced, as more efficient paths can be selected.
+The optimization of safe zones in the absence of information regarding the survivors' positions would thus be conducted as follows: 
+It is imperative that the safe zones be positioned in a manner that maximizes spatial separation between them to guarantee the most efficient paths to any survivor location.
+
+The objective is to ascertain the combination of safe zone positions that optimizes the minimum path lengths to other safe zones.
+In the worst-case scenario, the simulation would place two safe zones in directly adjacent, accessible fields, which would essentially allow the two safe zones to be grouped into a single safe zone with a minimal deviation in distance, if any.
+In general, the following insights can be derived for a real-world scenario in labyrinth-like areas:
+In order to minimize the time and distance required in the rescue scenario, it is imperative that the rescue zones have paths that are as far apart as possible so that the route to the survivors can be optimized to the greatest extent possible.
+
+In real-world scenarios, the structure of the disaster area, which is designed here as a labyrinth, may not be known in advance, and only the size of the area might be available.
+Therefore, the placement of safe zones must be possible without initial pathfinding between the zones to be allocated.
+In the following, it is demonstrated — based on a solid data foundation — that placing rescue zones with the greatest possible path lengths between them can be approximated using measured absolute distances as a rough visual estimate.
+
+For this purpose, both the grid-based Manhattan distance and the more realistic Euclidean distance are presented in \autoref{fig:survivor_count_per_heuristic_distance}. For reasons of statistical validity, the figure was truncated at the 97.5th percentile of minimum Manhattan distances, where data scarcity introduces disproportionate variance.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=\linewidth]{../images/isolated_safezone_min_both_heuristics.png}
+    \caption{Safe zones placed at greater heuristic distances, measured via Manhattan and Euclidean metrics, tend to host more survivors. This suggests that even rough spatial estimates can support effective zone placement in the maze.}
+    \label{fig:survivor_count_per_heuristic_distance}
+\end{figure}
+
+From the graphs showing the minimum Manhattan and Euclidean distances between the safe zones, it becomes evident that even a rough visual estimation of the distances between safe zones can be sufficient to maximize the minimum path lengths to other zones, thereby reducing the number of fields traveled by the agents.
+The grid-based Manhattan distance is particularly relevant for the simulation, as diagonal movement is not permitted. 
+In contrast, real-world scenarios allow for more flexible movement directions, making the Euclidean distance more appropriate. 
+
+Contrary to initial expectations during research, the Euclidean and Manhattan distances exhibit virtually identical correlation values, indicating no significant difference between the two.
+In cases where no information about the structure of the disaster area is available, safe zones should therefore be allocated as far apart from each other as possible, based on rough visual estimation. 
+The following conclusions can be drawn for a real-world scenario based on the findings from the simulations and the evaluation of the safe zones:
+
+If the structure of the disaster area is known - such as in the simulated labyrinth  - safe zones should be positioned so that the paths between them are as long as possible. 
+This allows agents to find more efficient routes and reduces search time.
+
+If the structure of the area is not known in advance, safe zones can still be placed based on rough visual estimation, using the largest possible distances between them. 
+For grid-based environments, distances should be calculated using the Manhattan distance; otherwise, the Euclidean distance is more appropriate.
+
+Under no circumstances should safe zones be placed in clusters or close proximity to one another, as they could be interpreted as a single zone from a pathfinding perspective.
+Instead, resources should be used to position safe zones in areas not yet covered. 
+This approach effectively reduces rescue time and transport distances.
+
+
+\section{\uppercase{Considerations for Real-World Implementation}}
+\label{sec:real_world_example}
+
+In real-world scenarios, disaster rescue operations are significantly more complex and difficult than in grid-based simulations without hindering external factors.
+To facilitate the effective rescue of survivors, it is imperative to employ state-of-the-art robot dogs that are meticulously engineered for rescue operations.
+The optimal quadruped robot would require the following equipment and characteristics:
+
+\begin{itemize}
+    \item Precise sensor technology with edge processing for the detection and recognition of obstacles, hazards, shortcuts, and survivors.
+    \item Integrated dynamic map for reliable, adaptable, and short pathfinding.
+    \item Built-in mechanisms for pulling or carrying survivors, such as a robotic arm.
+    \item Coordination and communication tools for deployment in a fleet.
+\end{itemize}
+
+The successful robotic dog Spot by Boston Dynamics demonstrates impressive reliability in several areas. 
+In addition to its sophisticated sensor technology, it also supports map integration, which enables the robot to avoid obstacles and identify optimal paths when used in combination\ \cite{boston_dynamics_2025_navigation,koval2022navigation}.
+
+As an additional feature for pulling loads, the Spot Arm can be used\ \cite{boston_dynamics_2024_spot_arm}.
+According to the specifications, the robotic arm can pull a maximum weight of up to 25 kg on a carpeted surface. 
+Based on this weight limit, it would be possible to pull a child weighing up to 25 kg — approximately the average weight of a seven-year-old — if placed on a stretcher and pulled by the robotic dog’s arm\ \cite{stolzenberg2007koerpermasse}.
+Promotional videos from Boston Dynamics also show ten Spot robots simultaneously pulling a truck from a standstill at a slow pace\ \cite{boston_dynamics_2019_spotmini_truck}.
+This suggests that transporting heavier survivors may also be feasible, especially if the stretcher is equipped with wheels.
+
+These transport capabilities — assuming similar specifications — can also be applied to other robotic dogs or robots. 
+However, the movement of robots under significant pulling loads on wheeled stretchers still requires validation.
+Nonetheless, the use of robotic search dogs for locating and transporting survivors in disaster scenarios appears to be a viable option.
+
+For coordination and communication between robotic dogs, various software solutions from the manufacturer can be used in combination. 
+Orbit is a fleet management and data analysis software designed for operating multiple Boston Dynamics robots\ \cite{boston_dynamics_2024_orbit}.
+Additionally, the Spot SDK enables the development of custom applications\ \cite{boston_dynamics_2025_spot_sdk}.
+Together, these tools allow for synchronized coordination and communication, with integrated data analysis and management. 
+Other solutions—whether manufacturer-specific or independent—also support software-based orchestration and control of robots.
+
+\section{\uppercase{Conclusion}}
+\label{sec:conclusion}
+
+This paper explored the potential of robotic systems, such as Boston Dynamics' Spot, for efficient rescue operations in disaster scenarios using grid-based maze simulations.
+A custom simulation environment was developed through the utilization of Python and Mesa to emulate labyrinth-like terrains, thereby simulating real-world disaster zones.
+The A-Star pathfinding algorithm with Manhattan distance heuristics was employed to optimize robot navigation.
+
+Key parameters such as maze dimensions, number of survivors, rescue zones, and robot agents were varied across batch simulations.
+The analysis revealed correlations between structural features and rescue efficiency, underscoring the significance of the correct rescue zone placement and agent coordination.
+It was demonstrated that isolated rescue zones consistently hosted a greater number of survivors, while a wider spatial distribution of zones contributed to reduced travel distances and fewer simulation steps.
+The study focused on actionable insights for real-world implementation, emphasizing strategic safe zone allocation and robot fleet coordination to enhance rescue effectiveness.
+
+\section{\uppercase{Future Work}}
+\label{sec:future_work}
+
+Future research should aim to validate the simulation results through physical testing with real robotic agents, such as Boston Dynamics' Spot. These experiments should assess the robot’s operational performance under realistic conditions, with particular attention to energy consumption and battery life — both of which are critical parameters in prolonged rescue missions.
+
+Practical trials should also incorporate advanced equipment, such as a robotic arm for the robot, a transport platform like a wheeled stretcher, and human-like dummies of varying weight classes to determine the operational limits of quadruped robots in rescue scenarios. Additionally, performance should be evaluated on challenging terrain, including slopes, scattered debris, and uneven surfaces, to identify potential solutions for the mechanical limitations of deployed robotic agents.
+
+In addition, the deployment and evaluation of multi-agent communication software should be conducted in simulations, like in the RoboCup Rescue Multi-Agent Challenge\ \cite{Visser2015RoboCup}, and in real-world environments to enhance coordination and minimize interference among multiple rescue units.
+
+\section*{\uppercase{Transparency Information}}
+
+In accordance with the European Code of Conduct for Research Integrity: Language models (GPT-4.1, GPT-5, DeepL) were utilized as instruments in the production, formulation, translation, and revision of the work.
+
+\section*{\uppercase{Acknowledgements}}
+
+% ACKNOWLEDGEMENTS
+% We gratefully acknowledge the OTH Amberg-Weiden for providing the research funding that made this work possible.
+Anonymized for Review.
+
+\bibliographystyle{apalike}
+{\small
+\bibliography{references}}
+
+\end{document}
